@@ -1,0 +1,233 @@
+{
+  "common": {
+    "save": "保存",
+    "back": "返回",
+    "confirm": "确认",
+    "cancel": "取消",
+    "close": "关闭",
+    "coming_soon": "即将推出"
+  },
+  "menu_scene": {
+    "project_name": "Elysia Engine",
+    "demo_gallery": "演示库",
+    "settings": "设置",
+    "exit": "退出",
+    "exit_confirm": {
+      "title": "确认退出",
+      "message": "要退出 Elysia Engine 吗？",
+      "cancel": "取消",
+      "close": "X"
+    }
+  },
+  "demo_gallery": {
+    "title": "演示库",
+    "physics": "物理与战斗",
+    "animation_preview": "动画预览",
+    "ui_gallery": "UI 组件库",
+    "engine_features": "引擎功能实验室",
+    "elysia_realm": "爱莉希雅领域",
+    "failure_test": "应用故障测试",
+    "back": "返回",
+    "failure_confirm": {
+      "title": "确认故障测试",
+      "message": "该测试会终止应用程序。是否继续？",
+      "confirm": "运行故障测试",
+      "cancel": "取消",
+      "close": "关闭"
+    }
+  },
+  "physics_combat_gallery": {
+    "box2d_lab": "Box2D 物理实验室",
+    "title": "物理与战斗演示",
+    "collider": "碰撞体战斗",
+    "platform_tile": "横版 Tile 战斗",
+    "top_down_tile": "俯视 Tile 战斗",
+    "back": "返回"
+  },
+  "animation_preview": {
+    "title": "动画预览",
+    "description": "预览 RyougiShiki 的目录帧动画和多段攻击动画。",
+    "animation_idle": "待机",
+    "animation_run": "奔跑",
+    "attack_segment": "攻击段",
+    "attack_previous": "上一段",
+    "attack_replay": "重播攻击",
+    "attack_next": "下一段",
+    "back": "返回"
+  },
+  "ui_component_gallery": {
+    "typography": {
+      "tab": "字体排版",
+      "title": "字体字号",
+      "description": "使用引擎内置字体展示所有预加载字号。",
+      "sample_10": "10 px — 说明文字示例",
+      "sample_20": "20 px — 紧凑文字示例",
+      "sample_30": "30 px — 标准文字示例",
+      "sample_40": "40 px — 标题文字示例",
+      "sample_50": "50 px — 副标题文字示例",
+      "sample_60": "60 px — 对话框标题示例",
+      "sample_70": "70 px — 主标题文字示例"
+    },
+    "status": { "ready": "UI 工作台已就绪", "interaction": "已收到交互", "submitted": "文本已提交", "overlay_opened": "弹层已打开", "selection_changed": "选项已更改" },
+    "pages": { "overview": "概览", "states": "状态与变体", "controls": "控件", "media": "内容与媒体", "containers": "容器", "overlays": "弹层与焦点", "appearance": "外观与本地化" },
+    "sections": {
+      "overview": "主题感知仪表板与视觉角色示例。",
+      "controls": "交互控件会更新状态栏。",
+      "media": "文本、数字、进度条、引擎图片与动画。",
+      "containers": "组合、插槽、滚动与嵌套标签页。",
+      "overlays": "窗口管理的弹层、对话框与焦点恢复。",
+      "appearance": "内建主题会立即更新已注册的 UI 树。"
+    },
+    "actions": { "replay": "重播", "reset": "重建工作台", "replay_effects": "重播效果", "play": "播放", "pause": "暂停", "resume": "继续", "reset_animation": "重置动画" },
+    "controls": { "labeled_check": "带标签复选框", "labeled_radio": "带标签单选项", "labeled_radio_far": "远端单选标签", "placeholder": "最多输入十六个字符" },
+    "states": {
+      "buttons_title": "按钮内容与角色", "buttons_description": "内容变体选择绘制路径，语义角色选择主题颜色。",
+      "text_button": "文本", "role_button": "角色", "disabled": "已禁用",
+      "selection_title": "选择状态", "selection_description": "并排展示逻辑状态、标记样式和禁用效果。",
+      "presentation_title": "展示角色", "presentation_description": "文本适配、文本角色和面板表面与布局相互独立。",
+      "fit_sample": "特意设置的长文本适配示例", "text_block_sample": "文本块会为父布局测量换行后的本地化内容。", "panel_sample": "面板",
+      "inputs_title": "文本输入状态", "inputs_description": "占位文本、已输入文本和禁用文本使用不同的展示路径。"
+    },
+    "media": {
+      "long_text": "此本地化文本块用于验证不同文字宽度下的换行、字体排版和主题化内容渲染。",
+      "text_title": "本地化文本与原始文本", "text_description": "TextKey 解析当前语言，RawText 原样保留稳定标识符。",
+      "number_title": "数字与进度条", "number_description": "展示边界数值格式和全部四种填充方向。",
+      "effects_title": "透明度效果", "effects_description": "淡入淡出、闪烁和脉冲仅在当前页激活时更新，并可重新播放。",
+      "fade_in": "淡入", "fade_in_out": "淡入淡出", "blink_visible": "从可见状态闪烁", "pulse_min": "从最低值脉冲",
+      "animation_title": "帧动画", "animation_description": "UI 动画借用缓存帧，并提供独立的播放控制。"
+    },
+    "containers": {
+      "chrome": "Chrome 插槽", "nested_tab": "嵌套标签页", "nested_tab_two": "第二个标签页",
+      "list_title": "线性列表", "list_description": "列表顺序同时决定布局、绘制和主轴焦点导航。",
+      "layout_title": "网格、面板、Chrome 与标签页", "layout_description": "结构化容器根据各自的布局模型推导焦点关系。",
+      "scroll_title": "滚动策略", "scroll_description": "自动、始终显示和隐藏滚动条都保持一致的内容裁剪行为。"
+    },
+    "overlays": {
+      "open_overlay": "打开非模态弹层", "open_dialog": "打开阅读对话框", "open_confirm": "打开确认对话框", "tooltip": "悬停查看提示", "tooltip_text": "提示内容会跟随焦点和指针状态。",
+      "placement_title": "弹层位置", "placement_description": "使用同一个面板演示全部位置、过渡和模态策略。",
+      "open_center": "居中（非模态）", "open_left": "左侧抽屉", "open_right": "右侧抽屉", "open_top": "顶部面板", "open_bottom": "底部面板",
+      "dialog_title": "模态对话框", "dialog_description": "对话框获取焦点，并在关闭后恢复此前的焦点范围。",
+      "popup_title": "弹出菜单与提示", "popup_description": "临时弹出菜单具有输入优先级，提示保持被动显示。",
+      "option_four": "第四项", "option_five": "第五项", "option_six": "第六项", "option_seven": "第七项", "option_eight": "第八项"
+    },
+    "dialog": { "title": "工作台阅读对话框", "body": "此对话框用于验证模态位置、焦点恢复和本地化长文案。" },
+    "confirm": { "title": "确认工作台操作", "message": "此确认对话框属于弹层覆盖的一部分。" },
+    "appearance": { "note": "主题名称是稳定的引擎标识。", "localized_sample": "本地化 TextKey 示例" }
+  },
+  "physics_tests": {
+    "title": "物理测试中心",
+    "physics": "基础物理与回归",
+    "combat": "战斗集成",
+    "stress": "压力测试",
+    "run": "运行 / 重跑",
+    "pause": "暂停 / 继续 (P)",
+    "single_step": "单步 (N)",
+    "free_play": "自由试玩",
+    "reset": "重置 (R)",
+    "back": "返回 (Esc)",
+    "ready": "待运行",
+    "running": "运行中",
+    "passed": "通过",
+    "failed": "失败",
+    "paused": "已暂停",
+    "steps": "步数",
+    "objects": "刚体 / 碰撞体",
+    "contacts": "接触",
+    "awake": "清醒",
+    "dropped": "丢弃步数",
+    "timing": "中位 / P95 / 最大 ms",
+    "samples": "采样数",
+    "debug": "调试几何 (F1)",
+    "mixed": "混合配置",
+    "on": "开启",
+    "off": "关闭",
+    "failure": "失败原因",
+    "actual": "实际",
+    "expected_value": "期望",
+    "low": "低档",
+    "medium": "中档",
+    "high": "高档",
+    "cases": {
+      "motion": {
+        "title": "刚体、力与质量",
+        "purpose": "比较三种刚体，验证重力、阻尼、旋转及质量响应。",
+        "expected": "静态物体不动；力和冲量随质量响应；阻尼减速。"
+      },
+      "materials": {
+        "title": "接触、材质与休眠",
+        "purpose": "观察地面、墙面、天花板接触，摩擦、反弹和堆叠唤醒。",
+        "expected": "正确识别各接触面；摩擦改变滑行；堆叠休眠后可被冲量唤醒。"
+      },
+      "ccd": {
+        "title": "连续碰撞回归",
+        "purpose": "八条独立通道对比离散对照、动态切换、多碰撞体和 bullet 配置。",
+        "expected": "连续碰撞通道停在目标前；离散对照允许穿透。"
+      },
+      "filters": {
+        "title": "过滤与传感器事件",
+        "purpose": "验证阻挡、重叠、忽略、掩码、分组与移除后的唯一 End。",
+        "expected": "掩码和分组选择碰撞对；传感器产生 Begin/Stay，禁用或移除后仅一次 End。"
+      },
+      "queries": {
+        "title": "形状查询与投射",
+        "purpose": "验证射线、线段、重叠、扫掠、旋转、过滤及传送后立即查询。",
+        "expected": "查询返回有序、过滤后的命中，并立即反映传送位置。"
+      },
+      "one_way": {
+        "title": "方向性平台",
+        "purpose": "验证四个方向与组合规则下允许和阻挡的接近方式。",
+        "expected": "每个方向阻挡实体侧，允许从另一侧穿越。"
+      },
+      "tiles": {
+        "title": "瓦片接缝与移动支撑",
+        "purpose": "跨接缝站立、同时下穿两块支撑、重新落地、删除瓦片及移动承载。",
+        "expected": "跨接缝稳定站立和下穿；移动平台承载物体。"
+      },
+      "joints": {
+        "title": "约束、弹簧与马达",
+        "purpose": "验证距离、弹簧收敛、马达限位及销毁后的句柄失效。",
+        "expected": "约束保持范围，弹簧收敛，销毁后的关节失效。"
+      },
+      "lifecycle": {
+        "title": "生命周期与命令顺序",
+        "purpose": "回调内注册移除、XY 写入、旋转后传送、重置及角度稳定性。",
+        "expected": "排队命令保持顺序，传送保留角度，重置使旧句柄失效。"
+      },
+      "timing": {
+        "title": "固定步进与插值",
+        "purpose": "验证帧率无关运动、分数步、追赶上限与渲染插值。",
+        "expected": "不同帧率保持固定步运动；插值和丢步统计正确。"
+      },
+      "combat_collider": {
+        "title": "碰撞体战斗",
+        "purpose": "真实攻击输入：前摇、命中窗口、去重、友军过滤、死亡和跳跃。",
+        "expected": "两次攻击各造成 25 点伤害；友方无伤；跳跃和落地成功。"
+      },
+      "combat_platform": {
+        "title": "平台瓦片战斗",
+        "purpose": "脚本驱动跳跃、向上穿越、接缝落地、下穿与短按输入。",
+        "expected": "向上穿越平台、跨接缝落地、下穿，短按输入仅消费一次。"
+      },
+      "combat_topdown": {
+        "title": "俯视瓦片战斗",
+        "purpose": "验证墙体遮挡、敌人追踪、危险区域进出和世界边界碰撞。",
+        "expected": "墙阻挡视线与移动；通路打开后追踪；离开危险区后停止伤害。"
+      },
+      "stress_bodies": {
+        "title": "运动刚体压力",
+        "purpose": "100 / 500 / 2000 个刚体。预热 120 步、采样 600 步；耗时仅供参考。",
+        "expected": "所有刚体状态有限、句柄有效；预热 120 步后采样 600 步。"
+      },
+      "stress_contacts": {
+        "title": "密集接触压力",
+        "purpose": "100 / 500 / 1000 个形状。验证持续接触和有限状态，不设速度阈值。",
+        "expected": "持续接触有效；报告 600 步采样，不设速度阈值。"
+      },
+      "stress_tiles": {
+        "title": "瓦片世界压力",
+        "purpose": "64² / 128² / 256² 格，稀疏障碍、局部更新与批量查询。",
+        "expected": "瓦片更新和查询成功；状态有限；报告 600 步采样。"
+      }
+    }
+  }
+}

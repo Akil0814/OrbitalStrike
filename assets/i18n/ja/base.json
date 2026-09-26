@@ -1,0 +1,241 @@
+{
+  "common": {
+    "save": "保存",
+    "back": "戻る",
+    "confirm": "確認",
+    "cancel": "キャンセル",
+    "close": "閉じる",
+    "coming_soon": "近日公開"
+  },
+  "menu_scene": {
+    "project_name": "Elysia Engine",
+    "demo_gallery": "デモギャラリー",
+    "settings": "設定",
+    "exit": "終了",
+    "exit_confirm": {
+      "title": "終了の確認",
+      "message": "Elysia Engineを終了しますか？",
+      "cancel": "キャンセル",
+      "close": "X"
+    }
+  },
+  "demo_gallery": {
+    "title": "デモギャラリー",
+    "physics": "物理・戦闘",
+    "animation_preview": "アニメーションプレビュー",
+    "ui_gallery": "UIコンポーネントギャラリー",
+    "engine_features": "エンジン機能ラボ",
+    "elysia_realm": "エリシアレルム",
+    "failure_test": "アプリケーション障害テスト",
+    "back": "戻る",
+    "failure_confirm": {
+      "title": "障害テストの確認",
+      "message": "このテストはアプリケーションを終了します。続行しますか？",
+      "confirm": "障害テストを実行",
+      "cancel": "キャンセル",
+      "close": "閉じる"
+    }
+  },
+  "physics_combat_gallery": {
+    "box2d_lab": "Box2D 物理ラボ",
+    "title": "物理・戦闘デモ",
+    "collider": "コライダー戦闘",
+    "platform_tile": "横スクロールタイル戦闘",
+    "top_down_tile": "見下ろし型タイル戦闘",
+    "back": "戻る"
+  },
+  "animation_preview": {
+    "title": "アニメーションプレビュー",
+    "description": "RyougiShikiのフレームディレクトリと多段攻撃アニメーションを確認します。",
+    "animation_idle": "待機",
+    "animation_run": "走行",
+    "attack_segment": "攻撃段",
+    "attack_previous": "前の段",
+    "attack_replay": "攻撃を再生",
+    "attack_next": "次の段",
+    "back": "戻る"
+  },
+  "ui_component_gallery": {
+    "typography": {
+      "tab": "タイポグラフィ",
+      "title": "フォントサイズ",
+      "description": "エンジン内蔵フォントで、事前読み込み済みの全サイズを表示します。",
+      "sample_10": "10 px — キャプションの例",
+      "sample_20": "20 px — コンパクトテキストの例",
+      "sample_30": "30 px — 標準テキストの例",
+      "sample_40": "40 px — 見出しの例",
+      "sample_50": "50 px — サブタイトルの例",
+      "sample_60": "60 px — ダイアログ見出しの例",
+      "sample_70": "70 px — タイトルの例"
+    },
+    "status": { "ready": "UI ワークベンチの準備完了", "interaction": "操作を受け取りました", "submitted": "テキストを送信しました", "overlay_opened": "オーバーレイを開きました", "selection_changed": "選択を変更しました" },
+    "pages": { "overview": "概要", "states": "状態とバリエーション", "controls": "コントロール", "media": "コンテンツとメディア", "containers": "コンテナ", "overlays": "オーバーレイとフォーカス", "appearance": "外観とローカライズ" },
+    "sections": { "overview": "テーマ対応ダッシュボードと視覚ロールの例。", "controls": "操作するとステータス行が更新されます。", "media": "テキスト、数値、バー、エンジン画像、アニメーション。", "containers": "合成、スロット、スクロール、ネストしたタブ。", "overlays": "ウィンドウ管理のオーバーレイ、ダイアログ、フォーカス復元。", "appearance": "組み込みテーマは登録済み UI ツリーを直ちに更新します。" },
+    "actions": { "replay": "再生", "reset": "ワークベンチを再構築", "replay_effects": "エフェクトを再生", "play": "再生", "pause": "一時停止", "resume": "再開", "reset_animation": "アニメーションをリセット" },
+    "controls": { "labeled_check": "ラベル付きチェックボックス", "labeled_radio": "ラベル付きラジオ項目", "labeled_radio_far": "端寄せラジオラベル", "placeholder": "16 文字まで入力" },
+    "states": {
+      "buttons_title": "ボタンの内容とロール",
+      "buttons_description": "内容で描画方式を、意味ロールでテーマ色を選びます。",
+      "text_button": "テキスト",
+      "role_button": "ロール",
+      "disabled": "無効",
+      "selection_title": "選択状態",
+      "selection_description": "論理状態、マーク形式、無効表示を並べて確認します。",
+      "presentation_title": "表示ロール",
+      "presentation_description": "文字フィット、文字ロール、パネル表面はレイアウトから独立しています。",
+      "fit_sample": "意図的に長いフィット用サンプル",
+      "text_block_sample": "テキストブロックは折り返したローカライズ内容を測定します。",
+      "panel_sample": "パネル",
+      "inputs_title": "テキスト入力状態",
+      "inputs_description": "プレースホルダー、入力済み、無効テキストを別々に描画します。"
+    },
+    "media": {
+      "long_text": "このローカライズ済みテキストブロックは、幅の異なる文字体系で折り返し、文字組み、テーマ対応描画を検証します。",
+      "text_title": "ローカライズ文字と生文字列",
+      "text_description": "TextKey は現在の言語を解決し、RawText は識別子をそのまま保持します。",
+      "number_title": "数値とバー",
+      "number_description": "境界値の数値書式と4方向のバー表示を確認します。",
+      "effects_title": "透明度エフェクト",
+      "effects_description": "フェード、点滅、パルスはこのタブが有効な間だけ更新され、再生できます。",
+      "fade_in": "フェードイン",
+      "fade_in_out": "フェードイン・アウト",
+      "blink_visible": "表示から点滅",
+      "pulse_min": "最小値からパルス",
+      "animation_title": "フレームアニメーション",
+      "animation_description": "UI アニメーションはキャッシュ済みフレームを参照し、独立した再生操作を持ちます。"
+    },
+    "containers": {
+      "chrome": "Chrome スロット", "nested_tab": "ネストしたタブ", "nested_tab_two": "2番目のタブ",
+      "list_title": "リニアリスト", "list_description": "リスト順がレイアウト、描画、主軸のフォーカス移動を決めます。",
+      "layout_title": "グリッド、パネル、Chrome、タブ", "layout_description": "構造化コンテナはレイアウトモデルからフォーカス関係を作ります。",
+      "scroll_title": "スクロール方針", "scroll_description": "自動、常時表示、非表示のスクロールバーは同じクリップ動作を保ちます。"
+    },
+    "overlays": {
+      "open_overlay": "非モーダルオーバーレイを開く", "open_dialog": "閲覧ダイアログを開く", "open_confirm": "確認ダイアログを開く", "tooltip": "ホバーでツールチップ", "tooltip_text": "ツールチップはフォーカスとポインターの状態に従います。",
+      "placement_title": "オーバーレイ配置", "placement_description": "同じパネルを全配置、遷移、モーダル方針で開き直します。",
+      "open_center": "中央（非モーダル）", "open_left": "左ドロワー", "open_right": "右ドロワー", "open_top": "上部シート", "open_bottom": "下部シート",
+      "dialog_title": "モーダルダイアログ", "dialog_description": "ダイアログはフォーカスを取得し、閉じると以前のスコープへ戻します。",
+      "popup_title": "ポップアップとツールチップ", "popup_description": "一時ポップアップを優先し、ツールチップは受動的に表示します。",
+      "option_four": "4番目", "option_five": "5番目", "option_six": "6番目", "option_seven": "7番目", "option_eight": "8番目"
+    },
+    "dialog": { "title": "ワークベンチ閲覧ダイアログ", "body": "このダイアログはモーダル配置、フォーカス復元、ローカライズ済み長文を検証します。" },
+    "confirm": { "title": "ワークベンチ操作の確認", "message": "この確認ダイアログはオーバーレイ検証の一部です。" },
+    "appearance": { "note": "テーマ名は安定したエンジン識別子です。", "localized_sample": "ローカライズ済み TextKey の例" }
+  },
+  "physics_tests": {
+    "title": "物理テストセンター",
+    "physics": "基礎物理・回帰",
+    "combat": "戦闘統合",
+    "stress": "負荷テスト",
+    "run": "実行 / 再実行",
+    "pause": "停止 / 再開 (P)",
+    "single_step": "1ステップ (N)",
+    "free_play": "自由プレイ",
+    "reset": "リセット (R)",
+    "back": "戻る (Esc)",
+    "ready": "待機",
+    "running": "実行中",
+    "passed": "成功",
+    "failed": "失敗",
+    "paused": "停止中",
+    "steps": "ステップ",
+    "objects": "剛体 / 形状",
+    "contacts": "接触",
+    "awake": "起動中",
+    "dropped": "破棄ステップ",
+    "timing": "中央 / P95 / 最大 ms",
+    "samples": "サンプル",
+    "debug": "デバッグ形状 (F1)",
+    "mixed": "設定混在",
+    "on": "オン",
+    "off": "オフ",
+    "failure": "失敗理由",
+    "actual": "実測",
+    "expected_value": "期待",
+    "low": "低",
+    "medium": "中",
+    "high": "高",
+    "cases": {
+      "motion": {
+        "title": "剛体・力・質量",
+        "purpose": "3種類の剛体、重力、減衰、回転、質量応答を比較。",
+        "expected": "静的物体は停止し、力と力積は質量に応じて作用し、減衰で減速します。"
+      },
+      "materials": {
+        "title": "接触・材質・スリープ",
+        "purpose": "床・壁・天井、摩擦、反発、積み重ねの復帰を検証。",
+        "expected": "接触面を識別し、摩擦で滑走が変化し、休眠した積み重ねが力積で起きます。"
+      },
+      "ccd": {
+        "title": "連続衝突の回帰テスト",
+        "purpose": "8レーンで離散対照、実行時CCD、複数形状、bulletを比較。",
+        "expected": "連続衝突は目標で停止します。離散方式の対照は通過しても正常です。"
+      },
+      "filters": {
+        "title": "フィルターとセンサーイベント",
+        "purpose": "応答・マスク・グループと削除後の一度だけのEndを検証。",
+        "expected": "マスクとグループで接触を選別。Begin/Stay と無効化・削除後の一度の End を確認します。"
+      },
+      "queries": {
+        "title": "形状クエリとキャスト",
+        "purpose": "レイ、線分、重なり、スイープ、回転、移動直後の検索。",
+        "expected": "照会は距離順に絞り込んだ命中を返し、転送位置を直ちに反映します。"
+      },
+      "one_way": {
+        "title": "一方向の足場",
+        "purpose": "上下左右と複合ルールの通過・遮断を検証。",
+        "expected": "各方向の固体側を遮断し、反対側からの通過を許可します。"
+      },
+      "tiles": {
+        "title": "タイル境界と移動足場",
+        "purpose": "境界上の接地、両足場の通過、再着地、タイル削除、移動足場。",
+        "expected": "継ぎ目で安定して立ち、下へ通過し、移動床に運ばれます。"
+      },
+      "joints": {
+        "title": "拘束・ばね・モーター",
+        "purpose": "距離、ばねの収束、回転制限、破棄後の無効化。",
+        "expected": "拘束範囲を維持し、ばねが収束し、破棄したジョイントが無効になります。"
+      },
+      "lifecycle": {
+        "title": "ライフサイクルと命令順序",
+        "purpose": "コールバック内の登録・削除、XY更新、回転後の移動、リセット。",
+        "expected": "命令の順序と転送時の角度を保持し、リセットで古いハンドルを無効化します。"
+      },
+      "timing": {
+        "title": "固定ステップと補間",
+        "purpose": "フレームレート非依存、端数時間、追いつき上限、描画補間。",
+        "expected": "表示速度に依存せず固定ステップを保ち、補間と破棄ステップ数を確認します。"
+      },
+      "combat_collider": {
+        "title": "コライダー戦闘",
+        "purpose": "実際の入力で攻撃準備、命中期間、重複防止、味方、死亡、ジャンプ。",
+        "expected": "攻撃は各 25 ダメージ、味方は無傷。ジャンプと着地に成功します。"
+      },
+      "combat_platform": {
+        "title": "タイル足場の戦闘",
+        "purpose": "入力によるジャンプ、上向き通過、境界着地、降下、短い入力。",
+        "expected": "床を上へ通過し、継ぎ目へ着地して下へ抜け、短い入力を一度だけ消費します。"
+      },
+      "combat_topdown": {
+        "title": "見下ろしタイル戦闘",
+        "purpose": "壁の遮蔽、敵の追跡、危険区域の出入り、境界衝突。",
+        "expected": "壁が視線と移動を遮断。通路を開くと追跡し、危険区域を離れると被害が止まります。"
+      },
+      "stress_bodies": {
+        "title": "移動剛体の負荷",
+        "purpose": "100 / 500 / 2000剛体。120ステップ予熱、600計測。時間は参考値。",
+        "expected": "剛体の有限状態と有効性を維持。120 ステップ準備後に 600 ステップを計測します。"
+      },
+      "stress_contacts": {
+        "title": "密集接触の負荷",
+        "purpose": "100 / 500 / 1000形状。接触と有限状態を検証、速度の合否基準なし。",
+        "expected": "持続接触の有効性と 600 ステップの計測を確認。速度の合格基準は設けません。"
+      },
+      "stress_tiles": {
+        "title": "タイル世界の負荷",
+        "purpose": "64² / 128² / 256²セル、疎な障害物、部分更新、一括クエリ。",
+        "expected": "タイル更新と照会が成功し、有限状態を保ち、600 ステップを計測します。"
+      }
+    }
+  }
+}
