@@ -11,6 +11,7 @@ Bullet* BulletFactory::spawn(BulletSpawnRequest request) const
     BulletConfig config;
     config.position = request.position;
     config.velocity = request.velocity;
+    config.flight_bounds = request.flight_bounds;
     config.damage = request.damage;
     config.on_hit = std::move(request.on_hit);
     config.on_finished = std::move(request.on_finished);

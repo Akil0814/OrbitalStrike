@@ -1,4 +1,5 @@
 #include "level_select_scene.h"
+#include "../level/game_level_definition.h"
 #include "scene_keys.h"
 
 #include "engine/tools/logger.h"
@@ -91,7 +92,10 @@ namespace game::scene
         prototype_button->set_sounds(menu_button_sounds);
         prototype_button->set_on_click([this] {
             ELYSIA_LOG_DEBUG("LevelSelectScene", "button click");
-            Scene::request_scene_switch(game::scene_keys::Game, {}, elysia::scene::SceneReloadMode::Reset);
+            Scene::request_scene_switch(
+                game::scene_keys::Game,
+                game::level::GameScenePayload{.level_id = game::level::GameLevelId::Prototype},
+                elysia::scene::SceneReloadMode::Reset);
         });
         ui_list->add_back(std::move(prototype_button));
 

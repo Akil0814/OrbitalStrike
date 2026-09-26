@@ -1,3 +1,5 @@
+#pragma once
+
 #include "engine/core/game_object.h"
 #include "engine/core/render/color.h"
 #include "engine/physics/contracts/physics_participant.h"
