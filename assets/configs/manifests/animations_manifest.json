@@ -1,12 +1,4 @@
 {
   "animations": [
-    {
-      "key": "test.animation",
-      "path": "test/frame_group.png",
-      "frame_count": 14,
-      "fps": 10,
-      "loop": true,
-      "horizontal_strip": true
-    }
   ]
 }

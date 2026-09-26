@@ -9,7 +9,7 @@ namespace game::objcets
     class CelestialBody : public elysia::core::GameObject,
         public elysia::core::Updatable,
         public elysia::physics::PhysicsParticipant,
-        public elysia::physics::PhysicsStepParticipant,
+        public elysia::physics::PhysicsStepParticipant
 
     {
 
