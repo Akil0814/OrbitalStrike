@@ -1,14 +1,15 @@
 #include "level_select_scene.h"
+#include "scene_keys.h"
 
-#include "../../engine/tools/logger.h"
+#include "engine/tools/logger.h"
 
-#include "../../engine/ui/composites/ui_confirmation_dialog.h"
-#include "../../engine/ui/widgets/ui_button.h"
-#include "../../engine/ui/widgets/image/ui_image.h"
-#include "../../engine/ui/widgets/label/ui_label.h"
-#include "../../engine/ui/containers/ui_list_container.h"
-#include "../../engine/ui/containers/ui_grid_container.h"
-#include "../../engine/ui/layout/ui_layout_types.h"
+#include "engine/ui/composites/ui_confirmation_dialog.h"
+#include "engine/ui/widgets/ui_button.h"
+#include "engine/ui/widgets/image/ui_image.h"
+#include "engine/ui/widgets/label/ui_label.h"
+#include "engine/ui/containers/ui_list_container.h"
+#include "engine/ui/containers/ui_grid_container.h"
+#include "engine/ui/layout/ui_layout_types.h"
 
 namespace game::scene
 {
@@ -44,7 +45,7 @@ namespace game::scene
 
     void LevelSelectScene::build_window_button()
     {
-        if (_main_window && _main_window->is_destroyed())
+        if (_main_window && !_main_window->is_destroyed())
             return;
 
         //create window
@@ -60,7 +61,7 @@ namespace game::scene
         //create the inner button container
         std::unique_ptr<elysia::ui::UiListContainer> ui_list =
             std::make_unique<elysia::ui::UiListContainer>(
-                elysia::core::Rect{ 0, 0, 300, 260 });
+                elysia::core::Rect{ 0, 0, 500, 660 });
 
         //Title
         std::unique_ptr<elysia::ui::UiLabel> ui_label =
@@ -76,13 +77,28 @@ namespace game::scene
 
         std::unique_ptr <elysia::ui::UiGridContainer> ui_grid =
             std::make_unique<elysia::ui::UiGridContainer>(
-                elysia::core::Rect{ 0, 0, 300, 260 });
+                elysia::core::Rect{ 0, 0, 500, 660 });
 
         constexpr int button_wide = 200;
         constexpr int button_hight = 200;
         const elysia::ui::UiButtonSounds menu_button_sounds{
             .press = "system.button_click_down",
             .click = "system.button_click_up" };
+
+        std::unique_ptr<elysia::ui::UiButton> prototype_button = std::make_unique<elysia::ui::UiButton>(
+            elysia::core::Rect{0, 0, 260, 72});
+        prototype_button->set_text_content(elysia::ui::ui_raw_text("Launch orbital prototype"));
+        prototype_button->set_sounds(menu_button_sounds);
+        prototype_button->set_on_click([this] {
+            ELYSIA_LOG_DEBUG("LevelSelectScene", "button click");
+            Scene::request_scene_switch(game::scene_keys::Game, {}, elysia::scene::SceneReloadMode::Reset);
+        });
+        ui_list->add_back(std::move(prototype_button));
+
+        elysia::ui::UiLayoutChildOptions layout{elysia::ui::UiLayoutAnchor::Center};
+        elysia::ui::UiElement* added = _main_window->add_child(std::move(ui_list), layout);
+        if (auto* list = dynamic_cast<elysia::ui::UiListContainer*>(added))
+            _main_window->register_focus_scope(*list);
 
     }
 }

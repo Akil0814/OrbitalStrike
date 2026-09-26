@@ -3,6 +3,7 @@
 #include "../scene/scene_keys.h"
 #include "../scene/main_menu_scene.h"
 #include "../scene/level_select_scene.h"
+#include "../scene/game_scene.h"
 
 #include "../../engine/builtin/builtin_scene_keys.h"
 #include "../../engine/builtin/scenes/startup_loading_scene.h"
@@ -54,6 +55,7 @@ void GameModule::register_scenes(elysia::scene::SceneManager& scene_manager) con
 {
     scene_manager.register_game_scene<game::scene::MainMenuScene>(game::scene_keys::MainMenu);
     scene_manager.register_game_scene<game::scene::LevelSelectScene>(game::scene_keys::LevelSelect);
+    scene_manager.register_game_scene<game::scene::GameScene>(game::scene_keys::Game);
 }
 
 std::unique_ptr<elysia::tools::IDevelopmentOverlay>

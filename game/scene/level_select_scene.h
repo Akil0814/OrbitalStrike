@@ -1,8 +1,8 @@
 #pragma once
 
-#include "../../engine/scene/scene.h"
+#include "engine/scene/scene.h"
 
-#include "../../engine/ui/window/ui_window.h"
+#include "engine/ui/window/ui_window.h"
 
 namespace game::scene
 {
