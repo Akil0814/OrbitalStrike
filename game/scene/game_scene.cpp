@@ -146,24 +146,14 @@ void GameScene::on_fixed_update(std::uint64_t tick, double delta)
     (void)tick;
     (void)delta;
     if (_state != RoundState::Flight || !_active_bullet || _active_bullet->finished()) return;
-    const auto* definition = _level.definition();
-    if (!definition) return;
-
-    const auto& gravity = definition->gravity;
-    for (const auto* body : _level.bodies())
-    {
-        const auto offset = _active_bullet->center() - body->center();
-        const float distance_squared = offset.length_squared();
-        if (distance_squared <= elysia::core::Vector2::k_epsilon
-            || distance_squared > gravity.maximum_range * gravity.maximum_range) continue;
-        const float minimum_distance_squared = gravity.minimum_distance * gravity.minimum_distance;
-        const float clamped_distance_squared = std::max(distance_squared, minimum_distance_squared);
-        const float strength = std::min(
-            gravity.maximum_force,
-            body->gravity_strength() * (minimum_distance_squared / clamped_distance_squared));
-        (void)physics_world().apply_force(
-            _active_bullet->physics_handle(), (-offset).normalized() * strength);
-    }
+    const game::objects::ProjectileState projectile{
+        .position = _active_bullet->center(),
+        .velocity = _active_bullet->velocity()};
+    elysia::core::Vector2 total_force{};
+    for (const auto* interactor : _level.interactors())
+        if (interactor) total_force += interactor->force_on(projectile);
+    if (!total_force.is_zero())
+        (void)physics_world().apply_force(_active_bullet->physics_handle(), total_force);
 }
 
 void GameScene::on_scene_object_registered(elysia::core::SceneObject& object)
@@ -199,7 +189,9 @@ void GameScene::build_level()
         if (!_aim_guide) throw std::runtime_error("GameScene failed to create AimGuide.");
         _hud.build(*this);
 
-        const auto initial_aim = _level.player()->center().direction_to(_level.enemy()->center());
+        const auto* initial_enemy = _level.first_alive_enemy();
+        if (!initial_enemy) throw std::runtime_error("GameLevel has no living enemy.");
+        const auto initial_aim = _level.player()->center().direction_to(initial_enemy->center());
         _input.reset(initial_aim);
         _camera_pan_offset = {};
         _power = definition.initial_power;
@@ -260,15 +252,14 @@ void GameScene::finish_resolution()
 
 void GameScene::update_hud()
 {
-    const auto* enemy = _level.enemy();
-    if (!enemy) return;
     _hud.update({
         .victory = _state == RoundState::Victory,
         .projectile_in_flight = _state == RoundState::Flight,
         .resolving = _state == RoundState::Resolving,
         .input_device = _input.last_input_device(),
         .power = _power,
-        .target_hit_points = enemy->hit_points()});
+        .remaining_enemies = _level.remaining_enemy_count(),
+        .total_enemy_hit_points = _level.total_enemy_hit_points()});
 }
 
 void GameScene::launch_bullet()
@@ -286,8 +277,8 @@ void GameScene::launch_bullet()
         .velocity = direction * _power,
         .flight_bounds = definition->activity_bounds,
         .damage = 1,
-        .on_hit = [this](elysia::physics::ColliderId collider, int damage) {
-            on_bullet_hit(collider, damage);
+        .on_hit = [this](const game::objects::ProjectileHitContext& hit) {
+            return on_bullet_hit(hit);
         },
         .on_finished = [this](game::objects::BulletEndReason reason) {
             on_bullet_finished(reason);
@@ -298,11 +289,15 @@ void GameScene::launch_bullet()
         _state = RoundState::Aiming;
 }
 
-void GameScene::on_bullet_hit(elysia::physics::ColliderId collider, int damage)
+game::objects::ProjectileCollisionResult GameScene::on_bullet_hit(
+    const game::objects::ProjectileHitContext& hit)
 {
-    auto* enemy = _level.enemy();
-    if (enemy && collider == enemy->physics_collider(0) && enemy->apply_damage(damage))
-        _state = RoundState::Victory;
+    auto* interactor = _level.find_interactor(hit.target_collider);
+    if (!interactor) return {};
+
+    const auto result = interactor->on_projectile_hit(hit);
+    if (_level.all_enemies_defeated()) _state = RoundState::Victory;
+    return result;
 }
 
 void GameScene::on_bullet_finished(game::objects::BulletEndReason reason)

@@ -40,7 +40,8 @@ private:
     void finish_resolution();
     void update_hud();
     void launch_bullet();
-    void on_bullet_hit(elysia::physics::ColliderId collider, int damage);
+    [[nodiscard]] game::objects::ProjectileCollisionResult on_bullet_hit(
+        const game::objects::ProjectileHitContext& hit);
     void on_bullet_finished(game::objects::BulletEndReason reason);
 
     RoundState _state = RoundState::Aiming;

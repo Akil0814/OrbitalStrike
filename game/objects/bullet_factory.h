@@ -13,7 +13,7 @@ struct BulletSpawnRequest
     elysia::core::Vector2 position{}, velocity{};
     elysia::core::Rect flight_bounds{0.0f, 0.0f, 1600.0f, 1000.0f};
     int damage = 1;
-    std::function<void(elysia::physics::ColliderId, int)> on_hit;
+    std::function<ProjectileCollisionResult(const ProjectileHitContext&)> on_hit;
     std::function<void(BulletEndReason)> on_finished;
 };
 

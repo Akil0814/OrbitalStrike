@@ -1,5 +1,7 @@
 #pragma once
 
+#include "projectile_interactor.h"
+
 #include "engine/core/game_object.h"
 #include "engine/core/interface/updatable.h"
 #include "engine/physics/contracts/collision_listener.h"
@@ -19,7 +21,7 @@ struct BulletConfig
     float radius = 8.0f;
     int damage = 1;
     double lifetime_seconds = 8.0;
-    std::function<void(elysia::physics::ColliderId, int)> on_hit;
+    std::function<ProjectileCollisionResult(const ProjectileHitContext&)> on_hit;
     std::function<void(BulletEndReason)> on_finished;
 };
 
@@ -45,6 +47,7 @@ private:
     void finish(BulletEndReason reason);
     BulletConfig _config;
     elysia::physics::Collider _collider{};
+    elysia::core::Vector2 _pre_collision_velocity{};
     double _age_seconds = 0.0;
     bool _listening = false, _finished = false;
 };

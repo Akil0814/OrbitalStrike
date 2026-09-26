@@ -16,7 +16,8 @@ struct GameHudModel
     bool resolving = false;
     elysia::input::InputDevice input_device = elysia::input::InputDevice::Keyboard;
     float power = 0.0f;
-    int target_hit_points = 0;
+    int remaining_enemies = 0;
+    int total_enemy_hit_points = 0;
 };
 
 class GameHud final

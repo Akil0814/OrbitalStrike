@@ -15,7 +15,10 @@ constexpr elysia::physics::CollisionBits kNeutralPlanet = 1u << 2;
 constexpr elysia::physics::CollisionBits kBullet = 1u << 3;
 }
 
-Bullet::Bullet(BulletConfig config) : GameObject(elysia::core::DepthLayer::Item), _config(std::move(config))
+Bullet::Bullet(BulletConfig config)
+    : GameObject(elysia::core::DepthLayer::Item),
+      _config(std::move(config)),
+      _pre_collision_velocity(_config.velocity)
 {
     _config.radius = std::max(1.0f, std::isfinite(_config.radius) ? _config.radius : 8.0f);
     _config.lifetime_seconds = std::max(0.1, std::isfinite(_config.lifetime_seconds) ? _config.lifetime_seconds : 8.0);
@@ -50,7 +53,11 @@ void Bullet::update(double delta_seconds)
         finish(BulletEndReason::OutOfBounds);
 }
 
-void Bullet::fixed_update(double fixed_delta_seconds) { (void)fixed_delta_seconds; }
+void Bullet::fixed_update(double fixed_delta_seconds)
+{
+    (void)fixed_delta_seconds;
+    if (!_finished) _pre_collision_velocity = velocity();
+}
 
 void Bullet::on_collision_event(const elysia::physics::CollisionEvent& event)
 {
@@ -62,8 +69,39 @@ void Bullet::on_collision_event(const elysia::physics::CollisionEvent& event)
         : pair.second.kind == elysia::physics::CollisionTargetKind::Collider && pair.second.collider == self
             ? pair.first : elysia::physics::CollisionTarget{};
     if (other.kind != elysia::physics::CollisionTargetKind::Collider) return;
-    if (_config.on_hit) _config.on_hit(other.collider, _config.damage);
-    finish(BulletEndReason::Hit);
+
+    const auto& manifold = event.contact.manifold;
+    const auto contact_point = manifold.contact_point_count > 0
+        ? manifold.contact_points[0] : center();
+    const ProjectileHitContext hit{
+        .target_collider = other.collider,
+        .contact_point = contact_point,
+        .contact_normal = manifold.normal,
+        .projectile_velocity = _pre_collision_velocity,
+        .damage = _config.damage};
+    const auto result = _config.on_hit
+        ? _config.on_hit(hit)
+        : ProjectileCollisionResult{};
+
+    switch (result.disposition)
+    {
+    case ProjectileDisposition::Continue:
+        set_velocity(_pre_collision_velocity);
+        return;
+    case ProjectileDisposition::Reflect:
+    {
+        auto normal = manifold.normal.normalized();
+        if (normal.is_zero()) normal = -_pre_collision_velocity.normalized();
+        const auto reflected = _pre_collision_velocity
+            - normal * (2.0f * _pre_collision_velocity.dot(normal));
+        set_velocity(reflected * std::max(0.0f, result.restitution));
+        return;
+    }
+    case ProjectileDisposition::Destroy:
+    default:
+        finish(BulletEndReason::Hit);
+        return;
+    }
 }
 
 elysia::physics::BodyDefinition Bullet::body_definition() const

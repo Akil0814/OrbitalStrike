@@ -34,13 +34,15 @@ void GameHud::update(const GameHudModel& model)
     else if (gamepad)
         text = "LS move | RS aim | LT/RT power: "
             + std::to_string(static_cast<int>(std::lround(model.power)))
-            + " | LB/RB zoom | A fire | Target HP: "
-            + std::to_string(model.target_hit_points);
+            + " | LB/RB zoom | A fire | Enemies: "
+            + std::to_string(model.remaining_enemies)
+            + " | Total HP: " + std::to_string(model.total_enemy_hit_points);
     else
         text = "WASD move | Mouse aim | Q/E power: "
             + std::to_string(static_cast<int>(std::lround(model.power)))
-            + " | Wheel zoom | Left click fire | Target HP: "
-            + std::to_string(model.target_hit_points);
+            + " | Wheel zoom | Left click fire | Enemies: "
+            + std::to_string(model.remaining_enemies)
+            + " | Total HP: " + std::to_string(model.total_enemy_hit_points);
 
     if (text == _last_text) return;
     _last_text = text;
