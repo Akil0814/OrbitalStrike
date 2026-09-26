@@ -37,6 +37,7 @@ private:
     void build_level();
     void clear_level() noexcept;
     void restart_level();
+    void finish_resolution();
     void update_hud();
     void launch_bullet();
     void on_bullet_hit(elysia::physics::ColliderId collider, int damage);
@@ -46,6 +47,7 @@ private:
     std::optional<game::level::GameLevelId> _level_id;
     float _power = 700.0f;
     elysia::core::Vector2 _camera_pan_offset{};
+    std::optional<elysia::core::Rect> _resolution_focus;
 
     game::input::GameInputController _input;
     game::level::GameLevel _level;

@@ -13,6 +13,7 @@ struct GameHudModel
 {
     bool victory = false;
     bool projectile_in_flight = false;
+    bool resolving = false;
     elysia::input::InputDevice input_device = elysia::input::InputDevice::Keyboard;
     float power = 0.0f;
     int target_hit_points = 0;

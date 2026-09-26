@@ -27,6 +27,8 @@ void GameHud::update(const GameHudModel& model)
     std::string text;
     if (model.victory)
         text = gamepad ? "Victory! Press Y to restart" : "Victory! Press R to restart";
+    else if (model.resolving)
+        text = gamepad ? "Observing result | LB/RB zoom" : "Observing result | Mouse wheel zoom";
     else if (model.projectile_in_flight)
         text = gamepad ? "Projectile in flight | LB/RB zoom" : "Projectile in flight | Mouse wheel zoom";
     else if (gamepad)
