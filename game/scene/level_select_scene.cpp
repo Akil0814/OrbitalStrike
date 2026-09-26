@@ -18,16 +18,6 @@ namespace game::scene
         elysia::scene::Scene::on_update(delta);
     }
 
-    void LevelSelectScene::on_render(SDL_Renderer* renderer)
-    {
-        elysia::scene::Scene::on_render(renderer);
-    }
-
-    void LevelSelectScene::on_input(const elysia::input::RawInputFrame& input, const std::vector<elysia::input::RawInputEvent>& events)
-    {
-        elysia::scene::Scene::on_input(input, events);
-    }
-
     void LevelSelectScene::on_enter(const elysia::scene::ScenePayload& payload)
     {
         (void)payload;
