@@ -1,5 +1,6 @@
 #pragma once
 
+#include "engine/input/action/input_action_map.h"
 #include "engine/scene/scene.h"
 #include "engine/tools/timer.h"
 
@@ -27,8 +28,6 @@ namespace game::scene
         void reset() override;
 
     protected:
-        void on_shortcuts(const elysia::input::RawInputFrame& frame,
-                          const std::vector<elysia::input::RawInputEvent>& events) override;
         void on_routed_input(const elysia::input::InputSnapshot& input) override;
         void on_fixed_update(std::uint64_t tick, double delta) override;
         void on_scene_object_registered(elysia::core::SceneObject& object) override;
@@ -36,7 +35,10 @@ namespace game::scene
 
     private:
         enum class RoundState : unsigned char { Aiming, Flight, Resolving, Victory };
+        enum class AimInputMode : unsigned char { Mouse, Gamepad };
 
+        void configure_input_actions();
+        void reset_input_state();
         void build_level();
         void clear_level();
         void restart_level();
@@ -46,12 +48,20 @@ namespace game::scene
         void on_bullet_finished(game::objects::BulletEndReason reason);
 
         RoundState _state = RoundState::Aiming;
+        AimInputMode _aim_input_mode = AimInputMode::Mouse;
+        elysia::input::InputDevice _last_input_device = elysia::input::InputDevice::Keyboard;
         bool _level_built = false;
-        bool _increase_power = false;
-        bool _decrease_power = false;
+        bool _mouse_position_valid = false;
         float _power = 700.0f;
+        float _power_input = 0.0f;
+        float _zoom_input = 0.0f;
 
-        elysia::core::Vector2 _mouse_world{};
+        elysia::core::Vector2 _camera_pan_input{};
+        elysia::core::Vector2 _camera_pan_offset{};
+        elysia::core::Vector2 _aim_direction{1.0f, 0.0f};
+        elysia::core::Vector2 _mouse_screen{};
+
+        elysia::input::InputActionMap _input_actions;
 
         game::objects::CelestialBody* _player = nullptr;
         game::objects::CelestialBody* _enemy = nullptr;
