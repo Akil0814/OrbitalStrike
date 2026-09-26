@@ -52,6 +52,7 @@ namespace game::scene
         elysia::input::InputDevice _last_input_device = elysia::input::InputDevice::Keyboard;
         bool _level_built = false;
         bool _mouse_position_valid = false;
+        bool _gamepad_aim_active = false;
         float _power = 700.0f;
         float _power_input = 0.0f;
         float _zoom_input = 0.0f;
@@ -59,6 +60,7 @@ namespace game::scene
         elysia::core::Vector2 _camera_pan_input{};
         elysia::core::Vector2 _camera_pan_offset{};
         elysia::core::Vector2 _aim_direction{1.0f, 0.0f};
+        elysia::core::Vector2 _gamepad_aim_target{1.0f, 0.0f};
         elysia::core::Vector2 _mouse_screen{};
 
         elysia::input::InputActionMap _input_actions;

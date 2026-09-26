@@ -26,7 +26,11 @@ constexpr float kPowerRate = 250.0f;
 constexpr float kCameraPanSpeed = 650.0f;
 constexpr float kMinimumZoom = 0.55f;
 constexpr float kMaximumZoom = 1.6f;
-constexpr float kGamepadAimDeadZone = 0.2f;
+constexpr float kGamepadAimEnterDeadZone = 0.28f;
+constexpr float kGamepadAimExitDeadZone = 0.20f;
+constexpr float kGamepadAimHalfLifeSeconds = 0.10f;
+constexpr float kLn2 = 0.69314718056f;
+constexpr float kTwoPi = 6.28318530718f;
 constexpr float kGravityRange = 520.0f;
 constexpr float kGravityMinimumDistance = 140.0f;
 constexpr float kGravityMaximumForce = 80.0f;
@@ -113,7 +117,7 @@ void GameScene::configure_input_actions()
         && _input_actions.register_action(
             {.id = kAimStickAction,
              .value_type = InputActionValueType::Axis2D,
-             .dead_zone = kGamepadAimDeadZone},
+             .dead_zone = kGamepadAimExitDeadZone},
             {{kAimStickAction, Axis2DInputBinding{
                 .x_axis = RawInputAxis::GamepadRightX,
                 .y_axis = RawInputAxis::GamepadRightY}}})
@@ -160,6 +164,8 @@ void GameScene::reset_input_state()
     _input_actions.reset_state();
     _camera_pan_input = {};
     _camera_pan_offset = {};
+    _gamepad_aim_active = false;
+    _gamepad_aim_target = _aim_direction;
     _power_input = 0.0f;
     _zoom_input = 0.0f;
 }
@@ -225,6 +231,15 @@ void GameScene::on_update(double delta)
             if (!mouse_direction.is_zero())
                 _aim_direction = mouse_direction;
         }
+        else if (_aim_input_mode == AimInputMode::Gamepad && _gamepad_aim_active)
+        {
+            const float current_angle = std::atan2(_aim_direction.y, _aim_direction.x);
+            const float target_angle = std::atan2(_gamepad_aim_target.y, _gamepad_aim_target.x);
+            const float angle_delta = std::remainder(target_angle - current_angle, kTwoPi);
+            const float blend = 1.0f - std::exp(-kLn2 * frame_delta / kGamepadAimHalfLifeSeconds);
+            const float smoothed_angle = current_angle + angle_delta * blend;
+            _aim_direction = {std::cos(smoothed_angle), std::sin(smoothed_angle)};
+        }
 
         if (auto* guide = dynamic_cast<AimGuide*>(_aim_guide))
             guide->set_aim(_player->center(), _aim_direction, _power, true);
@@ -263,6 +278,7 @@ void GameScene::on_routed_input(const elysia::input::InputSnapshot& input)
             _mouse_screen = {
                 static_cast<float>(event.mouse_x), static_cast<float>(event.mouse_y)};
             _aim_input_mode = AimInputMode::Mouse;
+            _gamepad_aim_active = false;
             _mouse_position_valid = true;
             if (_state == RoundState::Aiming && _player)
             {
@@ -279,11 +295,21 @@ void GameScene::on_routed_input(const elysia::input::InputSnapshot& input)
     _zoom_input = actions.frame.axis1d(kZoomContinuousAction);
 
     const auto stick_aim = actions.frame.axis2d(kAimStickAction);
-    if (stick_aim.length() > kGamepadAimDeadZone)
+    const float stick_magnitude = stick_aim.length();
+    const float activation_threshold = _gamepad_aim_active
+        ? kGamepadAimExitDeadZone
+        : kGamepadAimEnterDeadZone;
+    if (stick_magnitude > activation_threshold)
     {
-        _aim_direction = stick_aim.normalized();
+        _gamepad_aim_target = stick_aim.normalized();
+        _gamepad_aim_active = true;
         _aim_input_mode = AimInputMode::Gamepad;
         _last_input_device = elysia::input::InputDevice::Gamepad;
+    }
+    else if (_gamepad_aim_active && stick_magnitude <= kGamepadAimExitDeadZone)
+    {
+        _gamepad_aim_active = false;
+        _gamepad_aim_target = _aim_direction;
     }
 
     if (const auto found = actions.deltas.find(kZoomWheelAction); found != actions.deltas.end())
@@ -361,6 +387,8 @@ void GameScene::build_level()
     }
     _bullet_factory = std::make_unique<game::objects::BulletFactory>(*this);
     _aim_direction = _player->center().direction_to(_enemy->center());
+    _gamepad_aim_target = _aim_direction;
+    _gamepad_aim_active = false;
     _aim_input_mode = AimInputMode::Mouse;
     _last_input_device = elysia::input::InputDevice::Keyboard;
     _mouse_screen = {};
