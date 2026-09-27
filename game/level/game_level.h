@@ -30,6 +30,7 @@ public:
     }
     [[nodiscard]] game::objects::ProjectileCollisionResult resolve_projectile_hit(
         const game::objects::ProjectileHitContext& hit);
+    void set_backdrop_visible_bounds(elysia::core::Rect bounds) noexcept;
     [[nodiscard]] const GameLevelDefinition* definition() const noexcept { return _definition; }
     [[nodiscard]] bool is_built() const noexcept { return _definition != nullptr; }
 

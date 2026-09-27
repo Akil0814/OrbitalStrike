@@ -72,7 +72,7 @@ void GameScene::on_update(double delta)
         const auto base = moon_cell->camera_anchor()
             - elysia::core::Vector2{0.0f,
                 camera().world_viewport_size().y * definition.camera.cannon_screen_offset_ratio};
-        const auto& bounds = definition.camera.bounds;
+        const auto& bounds = definition.camera.aiming_bounds;
         const elysia::core::Vector2 target{
             std::clamp(base.x + _camera_pan_offset.x, bounds.left(), bounds.right()),
             std::clamp(base.y + _camera_pan_offset.y, bounds.top(), base.y)};
@@ -95,6 +95,7 @@ void GameScene::on_update(double delta)
     update_hud();
     _impact_hold_timer.update(delta);
     Scene::on_update(delta);
+    _level.set_backdrop_visible_bounds(camera().view_rect());
 }
 
 void GameScene::on_routed_input(const elysia::input::InputSnapshot& input)
@@ -205,8 +206,9 @@ void GameScene::build_level()
         auto* cameras = elysia::camera::CameraManager::instance();
         cameras->set_follow_strategy(
             render_camera_slot(), std::make_unique<elysia::camera::SmoothFollowStrategy>(1800.0));
-        cameras->set_world_bounds(render_camera_slot(), definition.camera.bounds);
+        cameras->set_world_bounds(render_camera_slot(), definition.map.backdrop_bounds);
         cameras->set_zoom(render_camera_slot(), definition.camera.initial_zoom);
+        _level.set_backdrop_visible_bounds(camera().view_rect());
         update_hud();
     }
     catch (...)
@@ -284,7 +286,7 @@ void GameScene::launch_bullet()
     _active_bullet = _bullet_factory.spawn({
         .position = moon_cell->muzzle_position() + direction * 10.0f,
         .velocity = direction * _power,
-        .flight_bounds = definition->activity_bounds,
+        .despawn_bounds = definition->map.projectile_bounds,
         .damage = 1,
         .lifetime_seconds = definition->launch.bullet_lifetime_seconds,
         .on_hit = [this](const game::objects::ProjectileHitContext& hit) {
@@ -307,13 +309,26 @@ game::objects::ProjectileCollisionResult GameScene::on_bullet_hit(
 
 void GameScene::on_bullet_finished(game::objects::BulletEndReason reason)
 {
-    (void)reason;
-    if (_active_bullet) _resolution_focus = _active_bullet->world_rect();
+    if (_active_bullet && reason == game::objects::BulletEndReason::Hit)
+        _resolution_focus = _active_bullet->world_rect();
     _active_bullet = nullptr;
     if (_state == RoundState::Flight)
     {
-        _state = RoundState::Resolving;
-        _impact_hold_timer.restart();
+        if (reason == game::objects::BulletEndReason::Hit)
+        {
+            _state = RoundState::Resolving;
+            _impact_hold_timer.restart();
+        }
+        else
+        {
+            _resolution_focus.reset();
+            _state = RoundState::Aiming;
+            _impact_hold_timer.pause();
+            const auto* definition = _level.definition();
+            const float target_zoom = definition ? definition->camera.initial_zoom : 0.6f;
+            elysia::camera::CameraManager::instance()->request_zoom_to(
+                render_camera_slot(), target_zoom, 0.35);
+        }
     }
 }
 }

@@ -17,7 +17,8 @@ void GameLevel::build(elysia::scene::Scene& scene, const GameLevelDefinition& de
     _ships.reserve(definition.ships.size());
     _anomalies.reserve(definition.anomalies.size());
     _interactors.reserve(1 + definition.ships.size() + definition.anomalies.size());
-    _background = scene.create_and_add_object<game::objects::ArenaBackdrop>(definition.activity_bounds);
+    _background = scene.create_and_add_object<game::objects::ArenaBackdrop>(
+        definition.map.backdrop_bounds, definition.map.starfield);
     _moon_cell = scene.create_and_add_object<game::objects::MoonCell>(definition.moon_cell);
     if (_moon_cell) _interactors.push_back(_moon_cell);
 
@@ -73,6 +74,11 @@ game::objects::ProjectileCollisionResult GameLevel::resolve_projectile_hit(
     if (auto* interactor = find_interactor(hit.target_collider))
         return interactor->on_projectile_hit(hit);
     return {};
+}
+
+void GameLevel::set_backdrop_visible_bounds(elysia::core::Rect bounds) noexcept
+{
+    if (_background) _background->set_visible_bounds(bounds);
 }
 
 game::objects::ProjectileInteractor* GameLevel::find_interactor(

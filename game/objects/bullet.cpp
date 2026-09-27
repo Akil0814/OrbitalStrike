@@ -42,7 +42,7 @@ void Bullet::update(double delta_seconds)
     _age_seconds += std::max(0.0, delta_seconds);
     if (_age_seconds >= _config.lifetime_seconds) { finish(BulletEndReason::Expired); return; }
     const auto position = center();
-    const auto& bounds = _config.flight_bounds;
+    const auto& bounds = _config.despawn_bounds;
     if (position.x < bounds.left() || position.x > bounds.right() || position.y < bounds.top() || position.y > bounds.bottom())
         finish(BulletEndReason::OutOfBounds);
 }
