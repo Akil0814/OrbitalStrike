@@ -31,18 +31,22 @@ void GameHud::update(const GameHudModel& model)
         text = gamepad ? "Observing result | LB/RB zoom" : "Observing result | Mouse wheel zoom";
     else if (model.projectile_in_flight)
         text = gamepad ? "Projectile in flight | LB/RB zoom" : "Projectile in flight | Mouse wheel zoom";
-    else if (gamepad)
-        text = "LS move | RS aim | LT/RT power: "
-            + std::to_string(static_cast<int>(std::lround(model.power)))
-            + " | LB/RB zoom | A fire | Enemies: "
-            + std::to_string(model.remaining_enemies)
-            + " | Total HP: " + std::to_string(model.total_enemy_hit_points);
     else
-        text = "WASD move | Mouse aim | Q/E power: "
-            + std::to_string(static_cast<int>(std::lround(model.power)))
-            + " | Wheel zoom | Left click fire | Enemies: "
-            + std::to_string(model.remaining_enemies)
-            + " | Total HP: " + std::to_string(model.total_enemy_hit_points);
+    {
+        const std::string status = " | Flagship: "
+            + std::to_string(model.flagship_hit_points) + "/"
+            + std::to_string(model.flagship_maximum_hit_points)
+            + " | Shield: " + (model.flagship_shield_active ? "ONLINE" : "OFFLINE")
+            + " | Escorts: " + std::to_string(model.living_escorts);
+        if (gamepad)
+            text = "LS move | RS aim | LT/RT power: "
+                + std::to_string(static_cast<int>(std::lround(model.power)))
+                + " | LB/RB zoom | A fire" + status;
+        else
+            text = "WASD move | Mouse aim | Q/E power: "
+                + std::to_string(static_cast<int>(std::lround(model.power)))
+                + " | Wheel zoom | Left click fire" + status;
+    }
 
     if (text == _last_text) return;
     _last_text = text;

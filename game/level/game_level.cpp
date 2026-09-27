@@ -14,33 +14,37 @@ void GameLevel::build(elysia::scene::Scene& scene, const GameLevelDefinition& de
     if (is_built()) throw std::logic_error("GameLevel is already built.");
 
     _definition = &definition;
-    _bodies.reserve(1 + definition.bodies.size());
-    _enemies.reserve(definition.bodies.size());
-    _interactors.reserve(1 + definition.bodies.size());
+    _ships.reserve(definition.ships.size());
+    _anomalies.reserve(definition.anomalies.size());
+    _interactors.reserve(1 + definition.ships.size() + definition.anomalies.size());
     _background = scene.create_and_add_object<game::objects::ArenaBackdrop>(definition.activity_bounds);
-    _player = scene.create_and_add_object<game::objects::CelestialBody>(definition.player);
-    if (_player)
+    _moon_cell = scene.create_and_add_object<game::objects::MoonCell>(definition.moon_cell);
+    if (_moon_cell) _interactors.push_back(_moon_cell);
+
+    for (const auto& ship_config : definition.ships)
     {
-        _bodies.push_back(_player);
-        _interactors.push_back(_player);
+        auto* ship = scene.create_and_add_object<game::objects::EnemyShip>(ship_config);
+        if (!ship) continue;
+        _ships.push_back(ship);
+        _interactors.push_back(ship);
+    }
+    for (const auto& anomaly_config : definition.anomalies)
+    {
+        auto* anomaly = scene.create_and_add_object<game::objects::SpaceAnomaly>(anomaly_config);
+        if (!anomaly) continue;
+        _anomalies.push_back(anomaly);
+        _interactors.push_back(anomaly);
     }
 
-    for (const auto& body_config : definition.bodies)
-    {
-        auto* body = scene.create_and_add_object<game::objects::CelestialBody>(body_config);
-        if (!body) continue;
-        _bodies.push_back(body);
-        _interactors.push_back(body);
-        if (body->faction() == game::objects::CelestialFaction::Enemy)
-            _enemies.push_back(body);
-    }
-
-    if (!_background || !_player || _bodies.size() != 1 + definition.bodies.size()
-        || _enemies.empty())
+    if (!_background || !_moon_cell || _ships.size() != definition.ships.size()
+        || _anomalies.size() != definition.anomalies.size())
     {
         clear();
-        throw std::runtime_error("GameLevel failed to create a valid set of scene objects.");
+        throw std::runtime_error("GameLevel failed to create its scene objects.");
     }
+
+    try { _fleet.configure(_ships); }
+    catch (...) { clear(); throw; }
 }
 
 void GameLevel::clear() noexcept
@@ -48,15 +52,27 @@ void GameLevel::clear() noexcept
     const auto destroy = [](elysia::core::SceneObject* object) {
         if (object && !object->is_destroyed()) object->destroy();
     };
-    for (auto* body : _bodies) destroy(body);
+    _fleet.clear();
+    for (auto* anomaly : _anomalies) destroy(anomaly);
+    for (auto* ship : _ships) destroy(ship);
+    destroy(_moon_cell);
     destroy(_background);
-
     _interactors.clear();
-    _enemies.clear();
-    _bodies.clear();
-    _player = nullptr;
+    _anomalies.clear();
+    _ships.clear();
+    _moon_cell = nullptr;
     _background = nullptr;
     _definition = nullptr;
+}
+
+game::objects::ProjectileCollisionResult GameLevel::resolve_projectile_hit(
+    const game::objects::ProjectileHitContext& hit)
+{
+    if (auto* ship = _fleet.find_ship(hit.target_collider))
+        return _fleet.resolve_projectile_hit(*ship, hit);
+    if (auto* interactor = find_interactor(hit.target_collider))
+        return interactor->on_projectile_hit(hit);
+    return {};
 }
 
 game::objects::ProjectileInteractor* GameLevel::find_interactor(
@@ -67,35 +83,5 @@ game::objects::ProjectileInteractor* GameLevel::find_interactor(
         return interactor && interactor->collider_id() == collider;
     });
     return found == _interactors.end() ? nullptr : *found;
-}
-
-game::objects::CelestialBody* GameLevel::first_alive_enemy() const noexcept
-{
-    const auto found = std::ranges::find_if(_enemies, [](const auto* enemy) {
-        return enemy && !enemy->is_defeated();
-    });
-    return found == _enemies.end() ? nullptr : *found;
-}
-
-bool GameLevel::all_enemies_defeated() const noexcept
-{
-    return !_enemies.empty() && std::ranges::all_of(_enemies, [](const auto* enemy) {
-        return !enemy || enemy->is_defeated();
-    });
-}
-
-int GameLevel::remaining_enemy_count() const noexcept
-{
-    return static_cast<int>(std::ranges::count_if(_enemies, [](const auto* enemy) {
-        return enemy && !enemy->is_defeated();
-    }));
-}
-
-int GameLevel::total_enemy_hit_points() const noexcept
-{
-    int total = 0;
-    for (const auto* enemy : _enemies)
-        if (enemy) total += enemy->hit_points();
-    return total;
 }
 }

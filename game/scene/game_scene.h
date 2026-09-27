@@ -40,13 +40,14 @@ private:
     void finish_resolution();
     void update_hud();
     void launch_bullet();
+    [[nodiscard]] elysia::core::Vector2 aiming_camera_target() const noexcept;
     [[nodiscard]] game::objects::ProjectileCollisionResult on_bullet_hit(
         const game::objects::ProjectileHitContext& hit);
     void on_bullet_finished(game::objects::BulletEndReason reason);
 
     RoundState _state = RoundState::Aiming;
     std::optional<game::level::GameLevelId> _level_id;
-    float _power = 700.0f;
+    float _power = 1050.0f;
     elysia::core::Vector2 _camera_pan_offset{};
     std::optional<elysia::core::Rect> _resolution_focus;
 

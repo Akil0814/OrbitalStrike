@@ -55,6 +55,11 @@ struct ProjectileCollisionResult
     float restitution = 1.0f;
 };
 
+[[nodiscard]] elysia::core::Vector2 compute_radial_force(
+    const RadialForceConfig& config,
+    elysia::core::Vector2 source_position,
+    const ProjectileState& projectile) noexcept;
+
 class ProjectileInteractor
 {
 public:

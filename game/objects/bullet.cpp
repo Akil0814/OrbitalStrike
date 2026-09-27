@@ -1,5 +1,6 @@
 #include "bullet.h"
 
+#include "collision_layers.h"
 #include "engine/core/render/render_command.h"
 
 #include <algorithm>
@@ -8,13 +9,6 @@
 
 namespace game::objects
 {
-namespace
-{
-constexpr elysia::physics::CollisionBits kEnemyPlanet = 1u << 1;
-constexpr elysia::physics::CollisionBits kNeutralPlanet = 1u << 2;
-constexpr elysia::physics::CollisionBits kBullet = 1u << 3;
-}
-
 Bullet::Bullet(BulletConfig config)
     : GameObject(elysia::core::DepthLayer::Item),
       _config(std::move(config)),
@@ -27,8 +21,8 @@ Bullet::Bullet(BulletConfig config)
                     2.0f * _config.radius, 2.0f * _config.radius});
     _collider.shape = elysia::physics::CircleShape{
         .local_center = {_config.radius, _config.radius}, .radius = _config.radius};
-    _collider.filter.category = kBullet;
-    _collider.filter.mask = kEnemyPlanet | kNeutralPlanet;
+    _collider.filter.category = collision_layers::Bullet;
+    _collider.filter.mask = collision_layers::EnemyShip;
     _collider.detection_mode = elysia::physics::CollisionDetectionMode::Continuous;
     _collider.material.restitution = 0.0f;
     _collider.tag = "bullet";

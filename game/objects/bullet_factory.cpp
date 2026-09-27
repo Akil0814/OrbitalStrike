@@ -13,6 +13,7 @@ Bullet* BulletFactory::spawn(BulletSpawnRequest request) const
     config.velocity = request.velocity;
     config.flight_bounds = request.flight_bounds;
     config.damage = request.damage;
+    config.lifetime_seconds = request.lifetime_seconds;
     config.on_hit = std::move(request.on_hit);
     config.on_finished = std::move(request.on_finished);
     return _scene.add_object(std::make_unique<Bullet>(std::move(config)));

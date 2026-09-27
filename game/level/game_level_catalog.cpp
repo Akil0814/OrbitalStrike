@@ -6,82 +6,78 @@ namespace game::level
 {
 namespace
 {
-constexpr elysia::core::Rect kPrototypeBounds{0.0f, 0.0f, 1600.0f, 1000.0f};
+constexpr elysia::core::Rect kActivityBounds{0.0f, 0.0f, 2200.0f, 3600.0f};
+constexpr elysia::core::Rect kCameraBounds{0.0f, 0.0f, 2200.0f, 3450.0f};
+constexpr elysia::core::Rect kFleetBounds{200.0f, 150.0f, 1800.0f, 1300.0f};
 
-game::objects::RadialForceConfig attractive_force(float strength)
+game::objects::RadialForceConfig radial_force(
+    game::objects::RadialForceMode mode, float strength, float range,
+    float minimum_distance, float maximum_force)
 {
-    return {
-        .mode = game::objects::RadialForceMode::Attract,
-        .strength = strength,
-        .maximum_range = 520.0f,
-        .minimum_distance = 140.0f,
-        .maximum_force = 80.0f};
+    return {.mode = mode, .strength = strength, .maximum_range = range,
+            .minimum_distance = minimum_distance, .maximum_force = maximum_force};
 }
 
-game::objects::CelestialMotionConfig movable_enemy()
+game::objects::EnemyShipMotionConfig ship_motion(float mass)
 {
-    return {
-        .dynamic = true,
-        .mass = 20.0f,
-        .linear_damping = 1.5f,
-        .movement_bounds = kPrototypeBounds};
+    return {.mass = mass, .linear_damping = 1.5f, .movement_bounds = kFleetBounds};
 }
 }
 
 const GameLevelDefinition& GameLevelCatalog::get(GameLevelId level_id)
 {
+    using namespace game::objects;
     static const GameLevelDefinition prototype{
-        .activity_bounds = kPrototypeBounds,
-        .initial_zoom = 0.8f,
-        .initial_power = 700.0f,
-        .player = {
-            .center = {230.0f, 720.0f},
-            .radius = 66.0f,
-            .faction = game::objects::CelestialFaction::Player,
-            .hit_points = 1,
-            .receives_damage = false,
-            .radial_force = attractive_force(16.0f),
-            .color = {63, 145, 255}},
-        .bodies = {
-            {
-                .center = {1320.0f, 240.0f},
-                .radius = 74.0f,
-                .faction = game::objects::CelestialFaction::Enemy,
-                .hit_points = 3,
-                .receives_damage = true,
-                .radial_force = attractive_force(20.0f),
-                .projectile_disposition = game::objects::ProjectileDisposition::Destroy,
-                .hit_reaction = game::objects::HitReactionMode::Knockback,
-                .knockback_impulse = 1200.0f,
-                .motion = movable_enemy(),
-                .color = {218, 70, 86}},
-            {
-                .center = {1260.0f, 780.0f},
-                .radius = 58.0f,
-                .faction = game::objects::CelestialFaction::Enemy,
+        .activity_bounds = kActivityBounds,
+        .camera = {.bounds = kCameraBounds, .initial_zoom = 0.6f,
+                   .minimum_zoom = 0.35f, .maximum_zoom = 1.6f,
+                   .pan_speed = 800.0f, .cannon_screen_offset_ratio = 0.3f},
+        .launch = {.minimum_power = 500.0f, .maximum_power = 1700.0f,
+                   .initial_power = 1050.0f, .adjustment_rate = 350.0f,
+                   .bullet_lifetime_seconds = 14.0},
+        .moon_cell = {
+            .moon_center = {1100.0f, 4350.0f}, .moon_radius = 1050.0f,
+            .cannon_pivot = {1100.0f, 3250.0f}, .cannon_base_size = {120.0f, 70.0f},
+            .barrel_length = 140.0f, .barrel_thickness = 20.0f,
+            .radial_force = radial_force(RadialForceMode::Attract, 18.0f, 1500.0f, 1050.0f, 25.0f)},
+        .ships = {
+            EnemyShipConfig{
+                .center = {1100.0f, 420.0f}, .facing = {0.0f, 1.0f},
+                .length = 190.0f, .width = 160.0f, .collision_radius = 95.0f,
+                .role = ShipRole::Flagship, .ability = ShipAbility::None,
+                .hit_points = 5, .knockback_impulse = 600.0f,
+                .motion = ship_motion(80.0f), .color = {205, 58, 72}},
+            EnemyShipConfig{
+                .center = {650.0f, 950.0f}, .facing = {0.0f, 1.0f},
+                .length = 116.0f, .width = 88.0f, .collision_radius = 58.0f,
+                .role = ShipRole::Escort, .ability = ShipAbility::RepulsionField,
                 .hit_points = 2,
-                .receives_damage = true,
-                .radial_force = attractive_force(14.0f),
-                .projectile_disposition = game::objects::ProjectileDisposition::Destroy,
-                .hit_reaction = game::objects::HitReactionMode::Knockback,
-                .knockback_impulse = 1200.0f,
-                .motion = movable_enemy(),
-                .color = {230, 112, 72}},
-            {
-                .center = {760.0f, 570.0f},
-                .radius = 100.0f,
-                .faction = game::objects::CelestialFaction::Neutral,
-                .hit_points = 1,
-                .receives_damage = false,
-                .radial_force = attractive_force(35.0f),
-                .projectile_disposition = game::objects::ProjectileDisposition::Destroy,
-                .color = {126, 102, 176}}
+                .radial_force = radial_force(RadialForceMode::Repel, 58.0f, 650.0f, 120.0f, 105.0f),
+                .knockback_impulse = 1200.0f, .motion = ship_motion(25.0f),
+                .color = {218, 82, 224}},
+            EnemyShipConfig{
+                .center = {1550.0f, 1100.0f}, .facing = {0.0f, 1.0f},
+                .length = 116.0f, .width = 88.0f, .collision_radius = 58.0f,
+                .role = ShipRole::Escort, .ability = ShipAbility::ShieldProjector,
+                .hit_points = 2, .knockback_impulse = 1200.0f,
+                .motion = ship_motion(25.0f), .color = {72, 154, 232}}
+        },
+        .anomalies = {
+            SpaceAnomalyConfig{
+                .kind = SpaceAnomalyKind::GravityWell, .center = {700.0f, 1850.0f},
+                .visual_radius = 125.0f,
+                .radial_force = radial_force(RadialForceMode::Attract, 78.0f, 900.0f, 150.0f, 130.0f),
+                .color = {76, 148, 255}},
+            SpaceAnomalyConfig{
+                .kind = SpaceAnomalyKind::RepulsionField, .center = {1500.0f, 2500.0f},
+                .visual_radius = 120.0f,
+                .radial_force = radial_force(RadialForceMode::Repel, 66.0f, 760.0f, 140.0f, 115.0f),
+                .color = {212, 78, 224}}
         }};
 
     switch (level_id)
     {
-    case GameLevelId::Prototype:
-        return prototype;
+    case GameLevelId::Prototype: return prototype;
     }
     throw std::invalid_argument("Unknown GameLevelId.");
 }

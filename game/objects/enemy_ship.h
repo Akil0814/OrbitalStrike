@@ -9,46 +9,55 @@
 
 namespace game::objects
 {
-enum class CelestialFaction : unsigned char
+enum class ShipRole : unsigned char
 {
-    Player,
-    Enemy,
-    Neutral
+    Flagship,
+    Command,
+    Escort,
+    Specialist
 };
 
-struct CelestialMotionConfig
+enum class ShipAbility : unsigned char
 {
-    bool dynamic = false;
-    float mass = 20.0f;
+    None,
+    RepulsionField,
+    ShieldProjector
+};
+
+struct EnemyShipMotionConfig
+{
+    float mass = 25.0f;
     float linear_damping = 1.5f;
     elysia::core::Rect movement_bounds{};
 };
 
-struct CelestialBodyConfig
+struct EnemyShipConfig
 {
     elysia::core::Vector2 center{};
-    float radius = 64.0f;
-    CelestialFaction faction = CelestialFaction::Neutral;
-    int hit_points = 1;
-    bool receives_damage = false;
+    elysia::core::Vector2 facing{0.0f, 1.0f};
+    float length = 120.0f;
+    float width = 90.0f;
+    float collision_radius = 58.0f;
+    ShipRole role = ShipRole::Escort;
+    ShipAbility ability = ShipAbility::None;
+    int hit_points = 2;
     RadialForceConfig radial_force{};
     ProjectileDisposition projectile_disposition = ProjectileDisposition::Destroy;
     float projectile_restitution = 1.0f;
-    HitReactionMode hit_reaction = HitReactionMode::None;
     float knockback_impulse = 1200.0f;
-    CelestialMotionConfig motion{};
-    elysia::core::Color color{};
+    EnemyShipMotionConfig motion{};
+    elysia::core::Color color{218, 70, 86};
 };
 
-class CelestialBody final : public elysia::core::GameObject,
-                            public elysia::physics::PhysicsParticipant,
-                            public elysia::physics::PhysicsStepParticipant,
-                            public ProjectileInteractor
+class EnemyShip final : public elysia::core::GameObject,
+                        public elysia::physics::PhysicsParticipant,
+                        public elysia::physics::PhysicsStepParticipant,
+                        public ProjectileInteractor
 {
 public:
-    explicit CelestialBody(CelestialBodyConfig config);
+    explicit EnemyShip(EnemyShipConfig config);
 
-    void submit_render_commands(std::vector<elysia::core::RenderCommand>& out_commands) const override;
+    void submit_render_commands(std::vector<elysia::core::RenderCommand>& commands) const override;
     [[nodiscard]] elysia::physics::BodyDefinition body_definition() const override;
     [[nodiscard]] std::span<const elysia::physics::Collider> collider_definitions() const override;
     void fixed_update(double fixed_delta_seconds) override;
@@ -62,21 +71,22 @@ public:
         return physics_collider(0);
     }
 
-    [[nodiscard]] CelestialFaction faction() const noexcept { return _config.faction; }
-    [[nodiscard]] float radius() const noexcept { return _config.radius; }
+    [[nodiscard]] ShipRole role() const noexcept { return _config.role; }
+    [[nodiscard]] ShipAbility ability() const noexcept { return _config.ability; }
     [[nodiscard]] int hit_points() const noexcept { return _hit_points; }
     [[nodiscard]] int maximum_hit_points() const noexcept { return _maximum_hit_points; }
     [[nodiscard]] bool is_defeated() const noexcept { return _hit_points <= 0; }
-    [[nodiscard]] elysia::core::Rect circle_bounds() const noexcept { return world_rect(); }
-    [[nodiscard]] bool apply_damage(int amount) noexcept;
+    void set_projectile_shielded(bool shielded) noexcept { _projectile_shielded = shielded; }
 
 private:
+    [[nodiscard]] bool apply_damage(int amount) noexcept;
     void disable_defeated_body() noexcept;
     void constrain_to_movement_bounds() noexcept;
 
-    CelestialBodyConfig _config;
+    EnemyShipConfig _config;
     elysia::physics::Collider _collider{};
     int _hit_points = 1;
     int _maximum_hit_points = 1;
+    bool _projectile_shielded = false;
 };
 }
