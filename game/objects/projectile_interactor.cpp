@@ -1,0 +1,33 @@
+#include "projectile_interactor.h"
+
+#include <algorithm>
+
+namespace game::objects
+{
+elysia::core::Vector2 compute_radial_force(
+    const RadialForceConfig& config,
+    elysia::core::Vector2 source_position,
+    const ProjectileState& projectile) noexcept
+{
+    if (config.mode == RadialForceMode::None || config.strength <= 0.0f
+        || config.maximum_range <= 0.0f || config.maximum_force <= 0.0f)
+        return {};
+
+    const auto offset = projectile.position - source_position;
+    const float distance_squared = offset.length_squared();
+    if (distance_squared <= elysia::core::Vector2::k_epsilon
+        || distance_squared > config.maximum_range * config.maximum_range)
+        return {};
+
+    const float minimum_distance = std::max(1.0f, config.minimum_distance);
+    const float minimum_distance_squared = minimum_distance * minimum_distance;
+    const float magnitude = std::min(
+        config.maximum_force,
+        config.strength * (minimum_distance_squared
+            / std::max(distance_squared, minimum_distance_squared)));
+    const auto outward = offset.normalized();
+    return config.mode == RadialForceMode::Attract
+        ? -outward * magnitude
+        : outward * magnitude;
+}
+}

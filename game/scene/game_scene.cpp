@@ -1,302 +1,139 @@
 #include "game_scene.h"
 
+#include "../level/game_level_catalog.h"
+#include "../objects/aim_guide.h"
 #include "../objects/bullet.h"
-#include "../objects/celestial_body.h"
+#include "../objects/enemy_ship.h"
+#include "../objects/moon_cell.h"
 
 #include "engine/camera/camera_manager.h"
 #include "engine/camera/follow_strategy.h"
-#include "engine/core/render/render_command.h"
-#include "engine/ui/text/ui_text_content.h"
-#include "engine/ui/widgets/label/ui_label.h"
 
 #include <algorithm>
 #include <cmath>
 #include <memory>
 #include <stdexcept>
-#include <string>
 
 namespace game::scene
 {
-namespace
-{
-constexpr elysia::core::Rect kFlightBounds{0.0f, 0.0f, 1600.0f, 1000.0f};
-constexpr float kMinPower = 300.0f;
-constexpr float kMaxPower = 1100.0f;
-constexpr float kPowerRate = 250.0f;
-constexpr float kCameraPanSpeed = 650.0f;
-constexpr float kMinimumZoom = 0.55f;
-constexpr float kMaximumZoom = 1.6f;
-constexpr float kGamepadAimDeadZone = 0.2f;
-constexpr float kGravityRange = 520.0f;
-constexpr float kGravityMinimumDistance = 140.0f;
-constexpr float kGravityMaximumForce = 80.0f;
-
-const elysia::input::InputActionId kCameraPanAction{"game.camera_pan"};
-const elysia::input::InputActionId kAimStickAction{"game.aim_stick"};
-const elysia::input::InputActionId kPowerAdjustAction{"game.power_adjust"};
-const elysia::input::InputActionId kZoomContinuousAction{"game.zoom_continuous"};
-const elysia::input::InputActionId kZoomWheelAction{"game.zoom_wheel"};
-const elysia::input::InputActionId kFireAction{"game.fire"};
-const elysia::input::InputActionId kRestartAction{"game.restart"};
-
-class ArenaBackdrop final : public elysia::core::GameObject
-{
-public:
-    ArenaBackdrop() : GameObject(elysia::core::DepthLayer::Background)
-    {
-        set_world_rect(kFlightBounds);
-    }
-
-    void submit_render_commands(std::vector<elysia::core::RenderCommand>& commands) const override
-    {
-        commands.push_back(elysia::core::make_world_fill_rect_command(world_rect(), {7, 11, 28}));
-        constexpr elysia::core::Vector2 stars[] = {
-            {95, 130}, {260, 260}, {410, 90}, {540, 780}, {750, 135}, {910, 640},
-            {1040, 125}, {1190, 520}, {1420, 270}, {1510, 810}, {330, 900}, {780, 910}
-        };
-        for (const auto star : stars)
-            commands.push_back(elysia::core::make_world_fill_circle_command(star, 2.0f, {170, 195, 255, 180}));
-    }
-};
-
-class AimGuide final : public elysia::core::GameObject
-{
-public:
-    AimGuide() : GameObject(elysia::core::DepthLayer::EffectFront) {}
-
-    void set_aim(elysia::core::Vector2 origin, elysia::core::Vector2 direction, float power, bool visible)
-    {
-        _origin = origin;
-        _direction = direction;
-        _power = power;
-        _visible = visible;
-    }
-
-    void submit_render_commands(std::vector<elysia::core::RenderCommand>& commands) const override
-    {
-        if (!_visible || _direction.is_zero()) return;
-        const auto end = _origin + _direction * (_power * 0.18f);
-        commands.push_back(elysia::core::make_world_draw_line_command(_origin, end, {124, 220, 255}, 2.0f));
-        commands.push_back(elysia::core::make_world_fill_circle_command(end, 5.0f, {124, 220, 255}));
-    }
-
-private:
-    elysia::core::Vector2 _origin{}, _direction{};
-    float _power = 0.0f;
-    bool _visible = false;
-};
-} // namespace
-
 GameScene::GameScene()
-    : Scene(elysia::physics::PhysicsWorldConfig{.gravity = {}})
+    : Scene(elysia::physics::PhysicsWorldConfig{.gravity = {}}),
+      _bullet_factory(*this)
 {
-    configure_input_actions();
-}
-
-void GameScene::configure_input_actions()
-{
-    using namespace elysia::input;
-
-    const bool registered =
-        _input_actions.register_action(
-            {.id = kCameraPanAction, .value_type = InputActionValueType::Axis2D},
-            {
-                {kCameraPanAction, Button2DInputBinding{
-                    .left = RawInputControl::KeyA,
-                    .right = RawInputControl::KeyD,
-                    .up = RawInputControl::KeyW,
-                    .down = RawInputControl::KeyS}},
-                {kCameraPanAction, Axis2DInputBinding{
-                    .x_axis = RawInputAxis::GamepadLeftX,
-                    .y_axis = RawInputAxis::GamepadLeftY}}
-            })
-        && _input_actions.register_action(
-            {.id = kAimStickAction,
-             .value_type = InputActionValueType::Axis2D,
-             .dead_zone = kGamepadAimDeadZone},
-            {{kAimStickAction, Axis2DInputBinding{
-                .x_axis = RawInputAxis::GamepadRightX,
-                .y_axis = RawInputAxis::GamepadRightY}}})
-        && _input_actions.register_action(
-            {.id = kPowerAdjustAction, .value_type = InputActionValueType::Axis1D},
-            {
-                {kPowerAdjustAction, ButtonInputBinding{.control = RawInputControl::KeyQ, .scale = -1.0f}},
-                {kPowerAdjustAction, ButtonInputBinding{.control = RawInputControl::KeyE, .scale = 1.0f}},
-                {kPowerAdjustAction, AxisInputBinding{.axis = RawInputAxis::GamepadLeftTrigger, .scale = -1.0f}},
-                {kPowerAdjustAction, AxisInputBinding{.axis = RawInputAxis::GamepadRightTrigger, .scale = 1.0f}}
-            })
-        && _input_actions.register_action(
-            {.id = kZoomContinuousAction, .value_type = InputActionValueType::Axis1D},
-            {
-                {kZoomContinuousAction, ButtonInputBinding{
-                    .control = RawInputControl::GamepadLeftShoulder, .scale = -1.0f}},
-                {kZoomContinuousAction, ButtonInputBinding{
-                    .control = RawInputControl::GamepadRightShoulder, .scale = 1.0f}}
-            })
-        && _input_actions.register_action(
-            {.id = kZoomWheelAction,
-             .value_type = InputActionValueType::Axis1D,
-             .semantics = InputValueSemantics::Delta},
-            {{kZoomWheelAction, PointerDeltaBinding{.axis = PointerDeltaAxis::WheelY}}})
-        && _input_actions.register_action(
-            {.id = kFireAction, .value_type = InputActionValueType::Button},
-            {
-                {kFireAction, ButtonInputBinding{.control = RawInputControl::MouseLeft}},
-                {kFireAction, ButtonInputBinding{.control = RawInputControl::GamepadSouth}}
-            })
-        && _input_actions.register_action(
-            {.id = kRestartAction, .value_type = InputActionValueType::Button},
-            {
-                {kRestartAction, ButtonInputBinding{.control = RawInputControl::KeyR}},
-                {kRestartAction, ButtonInputBinding{.control = RawInputControl::GamepadNorth}}
-            });
-
-    if (!registered || !_input_actions.valid())
-        throw std::logic_error("GameScene input action map is invalid.");
-}
-
-void GameScene::reset_input_state()
-{
-    _input_actions.reset_state();
-    _camera_pan_input = {};
-    _camera_pan_offset = {};
-    _power_input = 0.0f;
-    _zoom_input = 0.0f;
+    _impact_hold_timer.set_one_shot(true);
+    _impact_hold_timer.set_wait_time(1.0);
+    _impact_hold_timer.set_on_timeout([this] { finish_resolution(); });
+    _impact_hold_timer.pause();
 }
 
 void GameScene::on_enter(const elysia::scene::ScenePayload& payload)
 {
-    (void)payload;
-    if (!_level_built)
-        build_level();
-
-    _impact_hold_timer.set_one_shot(true);
-    _impact_hold_timer.set_on_timeout([this]
-        {
-            _state = RoundState::Aiming;
-        });
-    _impact_hold_timer.set_wait_time(1.0);
-    _impact_hold_timer.pause();
-
+    const auto* game_payload = elysia::scene::try_scene_payload<game::level::GameScenePayload>(payload);
+    if (!game_payload) throw std::logic_error("GameScene requires GameScenePayload.");
+    if (_level.is_built()) clear_level();
+    _level_id = game_payload->level_id;
+    build_level();
 }
 
-void GameScene::on_exit()
-{
-    clear_level();
-}
-
-void GameScene::reset()
-{
-    clear_level();
-}
+void GameScene::on_exit() { clear_level(); }
+void GameScene::reset() { clear_level(); }
 
 void GameScene::on_update(double delta)
 {
-    if (!_level_built) build_level();
+    if (!_level.is_built())
+    {
+        Scene::on_update(delta);
+        return;
+    }
+
+    const auto& definition = *_level.definition();
     const float frame_delta = static_cast<float>(std::max(0.0, delta));
-
-    if (std::fabs(_zoom_input) > elysia::core::Vector2::k_epsilon)
+    if (std::fabs(_input.continuous_zoom()) > elysia::core::Vector2::k_epsilon)
     {
-        const float requested = camera().zoom() * std::exp(_zoom_input * frame_delta);
+        const float requested = camera().zoom() * std::exp(_input.continuous_zoom() * frame_delta);
         elysia::camera::CameraManager::instance()->set_zoom(
-            render_camera_slot(), std::clamp(requested, kMinimumZoom, kMaximumZoom));
+            render_camera_slot(),
+            std::clamp(requested, definition.camera.minimum_zoom, definition.camera.maximum_zoom));
     }
 
-    if (_state == RoundState::Aiming)
+    auto* moon_cell = _level.moon_cell();
+    if (_state == RoundState::Aiming && moon_cell)
     {
-        _power = std::clamp(_power + _power_input * kPowerRate * frame_delta, kMinPower, kMaxPower);
+        _power = std::clamp(
+            _power + _input.power_adjustment() * definition.launch.adjustment_rate * frame_delta,
+            definition.launch.minimum_power, definition.launch.maximum_power);
 
-        elysia::core::Vector2 pan = _camera_pan_input;
-        if (pan.length_squared() > 1.0f)
-            pan = pan.normalized();
+        auto pan = _input.camera_pan();
+        if (pan.length_squared() > 1.0f) pan = pan.normalized();
         const float zoom = std::max(camera().zoom(), elysia::core::Vector2::k_epsilon);
-        _camera_pan_offset += pan * (kCameraPanSpeed / zoom * frame_delta);
+        _camera_pan_offset += pan * (definition.camera.pan_speed / zoom * frame_delta);
+        _camera_pan_offset.y = std::min(0.0f, _camera_pan_offset.y);
 
-        const auto player_center = _player->center();
-        const elysia::core::Vector2 camera_target{
-            std::clamp(player_center.x + _camera_pan_offset.x, kFlightBounds.left(), kFlightBounds.right()),
-            std::clamp(player_center.y + _camera_pan_offset.y, kFlightBounds.top(), kFlightBounds.bottom())};
-        _camera_pan_offset = camera_target - player_center;
+        const auto base = moon_cell->camera_anchor()
+            - elysia::core::Vector2{0.0f,
+                camera().world_viewport_size().y * definition.camera.cannon_screen_offset_ratio};
+        const auto& bounds = definition.camera.aiming_bounds;
+        const elysia::core::Vector2 target{
+            std::clamp(base.x + _camera_pan_offset.x, bounds.left(), bounds.right()),
+            std::clamp(base.y + _camera_pan_offset.y, bounds.top(), base.y)};
+        _camera_pan_offset = target - base;
 
-        if (_aim_input_mode == AimInputMode::Mouse && _mouse_position_valid)
-        {
-            const auto mouse_world = camera().screen_to_world(_mouse_screen);
-            const auto mouse_direction = _player->center().direction_to(mouse_world);
-            if (!mouse_direction.is_zero())
-                _aim_direction = mouse_direction;
-        }
-
-        if (auto* guide = dynamic_cast<AimGuide*>(_aim_guide))
-            guide->set_aim(_player->center(), _aim_direction, _power, true);
+        std::optional<elysia::core::Vector2> mouse_world;
+        if (const auto mouse_screen = _input.mouse_screen_position())
+            mouse_world = camera().screen_to_world(*mouse_screen);
+        _input.update_aim(delta, moon_cell->cannon_pivot(), mouse_world);
+        moon_cell->set_aim_direction(_input.aim_direction());
+        if (_aim_guide)
+            _aim_guide->set_aim(
+                moon_cell->muzzle_position(), moon_cell->aim_direction(), _power, true);
     }
-    else if (auto* guide = dynamic_cast<AimGuide*>(_aim_guide))
+    else if (_aim_guide)
     {
-        guide->set_aim({}, {}, 0.0f, false);
+        _aim_guide->set_aim({}, {}, 0.0f, false);
     }
+
     update_hud();
-
     _impact_hold_timer.update(delta);
-
     Scene::on_update(delta);
-
+    _level.set_backdrop_visible_bounds(camera().view_rect());
 }
 
 void GameScene::on_routed_input(const elysia::input::InputSnapshot& input)
 {
-    if (input.focus_lost)
+    const auto commands = _input.route(input);
+    if (commands.focus_lost)
     {
-        reset_input_state();
+        _camera_pan_offset = {};
         return;
     }
 
-    auto actions = _input_actions.resolve(input);
+    const auto* definition = _level.definition();
+    if (!definition) return;
 
-    for (const auto& event : input.events)
+    if (_state == RoundState::Aiming)
     {
-        if (event.device != elysia::input::InputDevice::Unknown)
-            _last_input_device = event.device;
-
-        if (event.device == elysia::input::InputDevice::Mouse
-            && (event.type == elysia::input::RawInputEventType::MouseMoved
-                || event.type == elysia::input::RawInputEventType::ControlPressed))
+        if (auto* moon_cell = _level.moon_cell())
         {
-            _mouse_screen = {
-                static_cast<float>(event.mouse_x), static_cast<float>(event.mouse_y)};
-            _aim_input_mode = AimInputMode::Mouse;
-            _mouse_position_valid = true;
-            if (_state == RoundState::Aiming && _player)
-            {
-                const auto mouse_world = camera().screen_to_world(_mouse_screen);
-                const auto mouse_direction = _player->center().direction_to(mouse_world);
-                if (!mouse_direction.is_zero())
-                    _aim_direction = mouse_direction;
-            }
+            std::optional<elysia::core::Vector2> mouse_world;
+            if (const auto mouse_screen = _input.mouse_screen_position())
+                mouse_world = camera().screen_to_world(*mouse_screen);
+            _input.update_aim(0.0, moon_cell->cannon_pivot(), mouse_world);
+            moon_cell->set_aim_direction(_input.aim_direction());
         }
     }
 
-    _camera_pan_input = actions.frame.axis2d(kCameraPanAction);
-    _power_input = actions.frame.axis1d(kPowerAdjustAction);
-    _zoom_input = actions.frame.axis1d(kZoomContinuousAction);
-
-    const auto stick_aim = actions.frame.axis2d(kAimStickAction);
-    if (stick_aim.length() > kGamepadAimDeadZone)
+    if (std::fabs(commands.zoom_wheel_steps) > elysia::core::Vector2::k_epsilon)
     {
-        _aim_direction = stick_aim.normalized();
-        _aim_input_mode = AimInputMode::Gamepad;
-        _last_input_device = elysia::input::InputDevice::Gamepad;
-    }
-
-    if (const auto found = actions.deltas.find(kZoomWheelAction); found != actions.deltas.end())
-    {
-        const float requested = camera().zoom() * std::pow(1.1f, found->second.x);
+        const float requested = camera().zoom() * std::pow(1.1f, commands.zoom_wheel_steps);
         elysia::camera::CameraManager::instance()->set_zoom(
-            render_camera_slot(), std::clamp(requested, kMinimumZoom, kMaximumZoom));
+            render_camera_slot(),
+            std::clamp(requested,
+                       definition->camera.minimum_zoom,
+                       definition->camera.maximum_zoom));
     }
 
-    if (_state == RoundState::Aiming && actions.frame.is_just_pressed(kFireAction))
-        launch_bullet();
-    else if (_state == RoundState::Victory && actions.frame.is_just_pressed(kRestartAction))
-        restart_level();
+    if (_state == RoundState::Aiming && commands.fire_pressed) launch_bullet();
+    else if (_state == RoundState::Victory && commands.restart_pressed) restart_level();
 }
 
 void GameScene::on_fixed_update(std::uint64_t tick, double delta)
@@ -304,20 +141,13 @@ void GameScene::on_fixed_update(std::uint64_t tick, double delta)
     (void)tick;
     (void)delta;
     if (_state != RoundState::Flight || !_active_bullet || _active_bullet->finished()) return;
-
-    for (const auto* body : {_player, _enemy, _neutral})
-    {
-        const auto offset = _active_bullet->center() - body->center();
-        const float distance_squared = offset.length_squared();
-        if (distance_squared <= elysia::core::Vector2::k_epsilon
-            || distance_squared > kGravityRange * kGravityRange) continue;
-        const float clamped_distance_squared = std::max(
-            distance_squared, kGravityMinimumDistance * kGravityMinimumDistance);
-        const float strength = std::min(kGravityMaximumForce,
-            body->gravity_strength() * (kGravityMinimumDistance * kGravityMinimumDistance / clamped_distance_squared));
-        (void)physics_world().apply_force(
-            _active_bullet->physics_handle(), (-offset).normalized() * strength);
-    }
+    const game::objects::ProjectileState projectile{
+        .position = _active_bullet->center(), .velocity = _active_bullet->velocity()};
+    elysia::core::Vector2 total_force{};
+    for (const auto* interactor : _level.interactors())
+        if (interactor) total_force += interactor->force_on(projectile);
+    if (!total_force.is_zero())
+        (void)physics_world().apply_force(_active_bullet->physics_handle(), total_force);
 }
 
 void GameScene::on_scene_object_registered(elysia::core::SceneObject& object)
@@ -330,75 +160,85 @@ std::optional<elysia::camera::CameraFocus> GameScene::resolve_camera_focus() con
 {
     if (_state == RoundState::Flight && _active_bullet && !_active_bullet->is_destroyed())
         return elysia::camera::CameraFocus{_active_bullet->world_rect(), _active_bullet->world_rect()};
-    if (_player && !_player->is_destroyed())
+    if ((_state == RoundState::Resolving || _state == RoundState::Victory) && _resolution_focus)
+        return elysia::camera::CameraFocus{*_resolution_focus, *_resolution_focus};
+    if (_level.moon_cell() && !_level.moon_cell()->is_destroyed())
     {
-        auto focus = _player->circle_bounds();
-        if (_state == RoundState::Aiming)
-            focus = focus.translated(_camera_pan_offset);
+        const auto focus = elysia::core::Rect::from_center(aiming_camera_target(), {2.0f, 2.0f});
         return elysia::camera::CameraFocus{focus, focus};
     }
     return std::nullopt;
 }
 
-void GameScene::build_level()
+elysia::core::Vector2 GameScene::aiming_camera_target() const noexcept
 {
-    _background = create_and_add_object<ArenaBackdrop>();
-    _player = create_and_add_object<game::objects::CelestialBody>(game::objects::CelestialBodyConfig{
-        .center = {230.0f, 720.0f}, .radius = 66.0f, .faction = game::objects::CelestialFaction::Player,
-        .hit_points = 1, .gravity_strength = 16.0f, .color = {63, 145, 255}});
-    _enemy = create_and_add_object<game::objects::CelestialBody>(game::objects::CelestialBodyConfig{
-        .center = {1320.0f, 240.0f}, .radius = 74.0f, .faction = game::objects::CelestialFaction::Enemy,
-        .hit_points = 3, .gravity_strength = 20.0f, .color = {218, 70, 86}});
-    _neutral = create_and_add_object<game::objects::CelestialBody>(game::objects::CelestialBodyConfig{
-        .center = {760.0f, 570.0f}, .radius = 100.0f, .faction = game::objects::CelestialFaction::Neutral,
-        .hit_points = 1, .gravity_strength = 35.0f, .color = {126, 102, 176}});
-    _aim_guide = create_and_add_object<AimGuide>();
-    _hud = create_and_add_object<elysia::ui::UiLabel>(elysia::core::Rect{24.0f, 20.0f, 600.0f, 45.0f});
-    if (_hud)
-    {
-        _hud->set_text_fit_mode(elysia::ui::UiLabelTextFitMode::ShrinkToFit);
-        _hud->set_text_content(elysia::ui::ui_raw_text(""));
-    }
-    _bullet_factory = std::make_unique<game::objects::BulletFactory>(*this);
-    _aim_direction = _player->center().direction_to(_enemy->center());
-    _aim_input_mode = AimInputMode::Mouse;
-    _last_input_device = elysia::input::InputDevice::Keyboard;
-    _mouse_screen = {};
-    _mouse_position_valid = false;
-    _camera_pan_offset = {};
-    reset_input_state();
-    _power = 700.0f;
-    _state = RoundState::Aiming;
-    _level_built = true;
-
-    auto* cameras = elysia::camera::CameraManager::instance();
-    cameras->set_follow_strategy(render_camera_slot(),
-        std::make_unique<elysia::camera::SmoothFollowStrategy>(1800.0));
-    cameras->set_zoom(render_camera_slot(), 0.8f);
+    const auto* moon_cell = _level.moon_cell();
+    const auto* definition = _level.definition();
+    if (!moon_cell || !definition) return {};
+    return moon_cell->camera_anchor()
+        - elysia::core::Vector2{0.0f,
+            camera().world_viewport_size().y * definition->camera.cannon_screen_offset_ratio}
+        + _camera_pan_offset;
 }
 
-void GameScene::clear_level()
+void GameScene::build_level()
 {
-    if (_active_bullet) _active_bullet->detach_collision_listener();
-    const auto destroy = [](elysia::core::SceneObject* object) {
-        if (object && !object->is_destroyed()) object->destroy();
-    };
-    destroy(_active_bullet);
-    destroy(_player);
-    destroy(_enemy);
-    destroy(_neutral);
-    destroy(_background);
-    destroy(_aim_guide);
-    destroy(_hud);
-    physics_world().reset();
+    if (!_level_id) throw std::logic_error("Cannot build a game level without a selected level id.");
+    const auto& definition = game::level::GameLevelCatalog::get(*_level_id);
+    try
+    {
+        _level.build(*this, definition);
+        _aim_guide = create_and_add_object<game::objects::AimGuide>();
+        if (!_aim_guide) throw std::runtime_error("GameScene failed to create AimGuide.");
+        _hud.build(*this);
+
+        auto* flagship = _level.fleet().flagship();
+        auto* moon_cell = _level.moon_cell();
+        if (!flagship || !moon_cell) throw std::runtime_error("GameLevel has no MoonCell or flagship.");
+        const auto initial_aim = moon_cell->cannon_pivot().direction_to(flagship->center());
+        _input.reset(initial_aim);
+        moon_cell->set_aim_direction(initial_aim);
+        _camera_pan_offset = {};
+        _power = definition.launch.initial_power;
+        _state = RoundState::Aiming;
+        _impact_hold_timer.pause();
+
+        auto* cameras = elysia::camera::CameraManager::instance();
+        cameras->set_follow_strategy(
+            render_camera_slot(), std::make_unique<elysia::camera::SmoothFollowStrategy>(1800.0));
+        cameras->set_world_bounds(render_camera_slot(), definition.map.backdrop_bounds);
+        cameras->set_zoom(render_camera_slot(), definition.camera.initial_zoom);
+        _level.set_backdrop_visible_bounds(camera().view_rect());
+        update_hud();
+    }
+    catch (...)
+    {
+        clear_level();
+        throw;
+    }
+}
+
+void GameScene::clear_level() noexcept
+{
+    if (_active_bullet)
+    {
+        _active_bullet->detach_collision_listener();
+        if (!_active_bullet->is_destroyed()) _active_bullet->destroy();
+    }
+    if (_aim_guide && !_aim_guide->is_destroyed()) _aim_guide->destroy();
     _active_bullet = nullptr;
-    _player = _enemy = _neutral = nullptr;
-    _background = _aim_guide = nullptr;
-    _hud = nullptr;
-    _bullet_factory.reset();
-    _level_built = false;
+    _aim_guide = nullptr;
+    _hud.clear();
+    _level.clear();
+    physics_world().reset();
     _camera_pan_offset = {};
-    reset_input_state();
+    _resolution_focus.reset();
+    _input.reset();
+    _impact_hold_timer.pause();
+    _state = RoundState::Aiming;
+    auto* cameras = elysia::camera::CameraManager::instance();
+    cameras->set_world_bounds(render_camera_slot(), std::nullopt);
+    cameras->request_clear_effects(render_camera_slot());
 }
 
 void GameScene::restart_level()
@@ -407,61 +247,88 @@ void GameScene::restart_level()
     build_level();
 }
 
+void GameScene::finish_resolution()
+{
+    if (_state != RoundState::Resolving) return;
+    _resolution_focus.reset();
+    _state = RoundState::Aiming;
+    const auto* definition = _level.definition();
+    const float target_zoom = definition ? definition->camera.initial_zoom : 0.6f;
+    elysia::camera::CameraManager::instance()->request_zoom_to(
+        render_camera_slot(), target_zoom, 0.35);
+}
+
 void GameScene::update_hud()
 {
-    if (!_hud || !_enemy) return;
-    std::string text;
-    const bool gamepad = _last_input_device == elysia::input::InputDevice::Gamepad;
-    if (_state == RoundState::Victory)
-        text = gamepad ? "Victory! Press Y to restart" : "Victory! Press R to restart";
-    else if (_state == RoundState::Flight)
-        text = gamepad ? "Projectile in flight | LB/RB zoom" : "Projectile in flight | Mouse wheel zoom";
-    else if (gamepad)
-        text = "LS move | RS aim | LT/RT power: " + std::to_string(static_cast<int>(std::lround(_power)))
-            + " | LB/RB zoom | A fire | Target HP: " + std::to_string(_enemy->hit_points());
-    else
-        text = "WASD move | Mouse aim | Q/E power: " + std::to_string(static_cast<int>(std::lround(_power)))
-            + " | Wheel zoom | Left click fire | Target HP: " + std::to_string(_enemy->hit_points());
-    _hud->set_text_content(elysia::ui::ui_raw_text(std::move(text)));
+    const auto* flagship = _level.fleet().flagship();
+    _hud.update({
+        .victory = _state == RoundState::Victory,
+        .projectile_in_flight = _state == RoundState::Flight,
+        .resolving = _state == RoundState::Resolving,
+        .input_device = _input.last_input_device(),
+        .power = _power,
+        .flagship_hit_points = flagship ? flagship->hit_points() : 0,
+        .flagship_maximum_hit_points = flagship ? flagship->maximum_hit_points() : 0,
+        .flagship_shield_active = _level.fleet().flagship_shield_active(),
+        .living_escorts = _level.fleet().living_escort_count()});
 }
 
 void GameScene::launch_bullet()
 {
-    if (!_bullet_factory || !_player || _active_bullet) return;
-    const auto direction = _aim_direction.normalized();
+    auto* moon_cell = _level.moon_cell();
+    const auto* definition = _level.definition();
+    if (!moon_cell || !definition || _active_bullet) return;
+    const auto direction = moon_cell->aim_direction().normalized();
     if (direction.is_zero()) return;
 
+    _resolution_focus.reset();
     _state = RoundState::Flight;
-    _active_bullet = _bullet_factory->spawn({
-        .position = _player->center() + direction * (_player->radius() + 10.0f),
+    _active_bullet = _bullet_factory.spawn({
+        .position = moon_cell->muzzle_position() + direction * 10.0f,
         .velocity = direction * _power,
+        .despawn_bounds = definition->map.projectile_bounds,
         .damage = 1,
-        .on_hit = [this](elysia::physics::ColliderId collider, int damage) { on_bullet_hit(collider, damage); },
-        .on_finished = [this](game::objects::BulletEndReason reason) { on_bullet_finished(reason); }
-    });
-    if (_active_bullet)
-        _camera_pan_offset = {};
-    else
-        _state = RoundState::Aiming;
+        .lifetime_seconds = definition->launch.bullet_lifetime_seconds,
+        .on_hit = [this](const game::objects::ProjectileHitContext& hit) {
+            return on_bullet_hit(hit);
+        },
+        .on_finished = [this](game::objects::BulletEndReason reason) {
+            on_bullet_finished(reason);
+        }});
+    if (_active_bullet) _camera_pan_offset = {};
+    else _state = RoundState::Aiming;
 }
 
-void GameScene::on_bullet_hit(elysia::physics::ColliderId collider, int damage)
+game::objects::ProjectileCollisionResult GameScene::on_bullet_hit(
+    const game::objects::ProjectileHitContext& hit)
 {
-    if (_enemy && collider == _enemy->physics_collider(0) && _enemy->apply_damage(damage))
-        _state = RoundState::Victory;
+    const auto result = _level.resolve_projectile_hit(hit);
+    if (_level.fleet().flagship_defeated()) _state = RoundState::Victory;
+    return result;
 }
 
 void GameScene::on_bullet_finished(game::objects::BulletEndReason reason)
 {
-    (void)reason;
+    if (_active_bullet && reason == game::objects::BulletEndReason::Hit)
+        _resolution_focus = _active_bullet->world_rect();
     _active_bullet = nullptr;
     if (_state == RoundState::Flight)
     {
-        _state = RoundState::Resolving;
-        _impact_hold_timer.restart();
+        if (reason == game::objects::BulletEndReason::Hit)
+        {
+            _state = RoundState::Resolving;
+            _impact_hold_timer.restart();
+        }
+        else
+        {
+            _resolution_focus.reset();
+            _state = RoundState::Aiming;
+            _impact_hold_timer.pause();
+            const auto* definition = _level.definition();
+            const float target_zoom = definition ? definition->camera.initial_zoom : 0.6f;
+            elysia::camera::CameraManager::instance()->request_zoom_to(
+                render_camera_slot(), target_zoom, 0.35);
+        }
     }
-
-    elysia::camera::CameraManager::instance()->request_zoom_to(render_camera_slot(), 0.8f, 0.35);
 }
-
-} // namespace game::scene
+}
