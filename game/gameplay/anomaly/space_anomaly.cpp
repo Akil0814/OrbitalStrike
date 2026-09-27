@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace game::objects
+namespace game::anomaly
 {
 SpaceAnomaly::SpaceAnomaly(SpaceAnomalyConfig config)
     : GameObject(elysia::core::DepthLayer::Terrain), _config(config)
@@ -42,14 +42,10 @@ void SpaceAnomaly::submit_render_commands(std::vector<elysia::core::RenderComman
     }
 }
 
-elysia::core::Vector2 SpaceAnomaly::force_on(const ProjectileState& projectile) const noexcept
+elysia::core::Vector2 SpaceAnomaly::force_on(
+    const game::projectile::ProjectileState& projectile) const noexcept
 {
-    return compute_radial_force(_config.radial_force, world_rect().center(), projectile);
-}
-
-ProjectileCollisionResult SpaceAnomaly::on_projectile_hit(const ProjectileHitContext& hit)
-{
-    (void)hit;
-    return {.disposition = ProjectileDisposition::Continue};
+    return game::projectile::compute_radial_force(
+        _config.radial_force, world_rect().center(), projectile);
 }
 }

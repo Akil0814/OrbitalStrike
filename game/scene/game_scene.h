@@ -2,7 +2,8 @@
 
 #include "../input/game_input_controller.h"
 #include "../level/game_level.h"
-#include "../objects/bullet_factory.h"
+#include "../gameplay/projectile/projectile_factory.h"
+#include "../gameplay/session/round_controller.h"
 #include "../ui/game_hud.h"
 
 #include "engine/scene/scene.h"
@@ -10,7 +11,8 @@
 
 #include <optional>
 
-namespace game::objects { class AimGuide; class Bullet; }
+namespace game::launcher { class AimGuide; }
+namespace game::projectile { class Projectile; }
 
 namespace game::scene
 {
@@ -32,20 +34,17 @@ protected:
     [[nodiscard]] std::optional<elysia::camera::CameraFocus> resolve_camera_focus() const override;
 
 private:
-    enum class RoundState : unsigned char { Aiming, Flight, Resolving, Victory };
-
     void build_level();
     void clear_level() noexcept;
     void restart_level();
     void finish_resolution();
     void update_hud();
-    void launch_bullet();
+    void launch_projectile();
     [[nodiscard]] elysia::core::Vector2 aiming_camera_target() const noexcept;
-    [[nodiscard]] game::objects::ProjectileCollisionResult on_bullet_hit(
-        const game::objects::ProjectileHitContext& hit);
-    void on_bullet_finished(game::objects::BulletEndReason reason);
+    [[nodiscard]] game::projectile::ProjectileImpactResolution on_projectile_impact(
+        const game::projectile::ProjectileImpact& impact);
+    void on_projectile_finished(game::projectile::ProjectileEndReason reason);
 
-    RoundState _state = RoundState::Aiming;
     std::optional<game::level::GameLevelId> _level_id;
     float _power = 1050.0f;
     elysia::core::Vector2 _camera_pan_offset{};
@@ -53,11 +52,12 @@ private:
 
     game::input::GameInputController _input;
     game::level::GameLevel _level;
+    game::session::RoundController _round;
     game::ui::GameHud _hud;
-    game::objects::BulletFactory _bullet_factory;
+    game::projectile::ProjectileFactory _projectile_factory;
 
-    game::objects::AimGuide* _aim_guide = nullptr;
-    game::objects::Bullet* _active_bullet = nullptr;
+    game::launcher::AimGuide* _aim_guide = nullptr;
+    game::projectile::Projectile* _active_projectile = nullptr;
     elysia::tools::Timer _impact_hold_timer;
 };
 }

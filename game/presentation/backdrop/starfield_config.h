@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace game::objects
+namespace game::presentation
 {
 struct StarfieldConfig
 {

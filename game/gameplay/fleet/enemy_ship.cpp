@@ -1,12 +1,12 @@
 #include "enemy_ship.h"
 
-#include "collision_layers.h"
+#include "../collision_layers.h"
 #include "engine/core/render/render_command.h"
 
 #include <algorithm>
 #include <cmath>
 
-namespace game::objects
+namespace game::fleet
 {
 namespace
 {
@@ -44,8 +44,8 @@ EnemyShip::EnemyShip(EnemyShipConfig config)
     _collider.shape = elysia::physics::CircleShape{
         .local_center = {_config.collision_radius, _config.collision_radius},
         .radius = _config.collision_radius};
-    _collider.filter.category = collision_layers::EnemyShip;
-    _collider.filter.mask = collision_layers::Bullet;
+    _collider.filter.category = game::collision_layers::EnemyShip;
+    _collider.filter.mask = game::collision_layers::Projectile;
     _collider.response = elysia::physics::CollisionResponse::Block;
     _collider.tag = "enemy_ship";
 }
@@ -119,35 +119,43 @@ void EnemyShip::fixed_update(double fixed_delta_seconds)
     if (!is_defeated()) constrain_to_movement_bounds();
 }
 
-elysia::core::Vector2 EnemyShip::force_on(const ProjectileState& projectile) const noexcept
+elysia::core::Vector2 EnemyShip::force_on(
+    const game::projectile::ProjectileState& projectile) const noexcept
 {
     if (is_defeated()) return {};
-    return compute_radial_force(_config.radial_force, center(), projectile);
+    return game::projectile::compute_radial_force(_config.radial_force, center(), projectile);
 }
 
-ProjectileCollisionResult EnemyShip::on_projectile_hit(const ProjectileHitContext& hit)
+game::projectile::ProjectileImpactResolution EnemyShip::resolve_projectile_impact(
+    const game::projectile::ProjectileImpact& impact)
 {
-    const ProjectileCollisionResult result{
+    game::projectile::ProjectileImpactResolution result{
         .disposition = _config.projectile_disposition,
         .restitution = _config.projectile_restitution};
-    if (is_defeated()) return result;
-
-    if (apply_damage(hit.damage))
-    {
-        disable_defeated_body();
-        return result;
-    }
-    if (physics_world() && !hit.projectile_velocity.is_zero())
+    result.damage = receive_damage(impact.damage);
+    if (!result.damage.blocked && !result.damage.defeated
+        && physics_world() && !impact.projectile_velocity.is_zero())
         (void)physics_world()->apply_impulse(
-            physics_handle(), hit.projectile_velocity.normalized() * _config.knockback_impulse);
+            physics_handle(),
+            impact.projectile_velocity.normalized() * _config.knockback_impulse);
     return result;
 }
 
-bool EnemyShip::apply_damage(int amount) noexcept
+game::combat::DamageResult EnemyShip::receive_damage(
+    const game::combat::DamageSpec& damage) noexcept
 {
-    if (amount <= 0 || is_defeated()) return false;
-    _hit_points = std::max(0, _hit_points - amount);
-    return is_defeated();
+    game::combat::DamageResult result{
+        .requested = damage.amount,
+        .applied = 0,
+        .blocked = false,
+        .defeated = is_defeated()};
+    if (damage.amount <= 0 || result.defeated) return result;
+
+    result.applied = std::min(_hit_points, damage.amount);
+    _hit_points -= result.applied;
+    result.defeated = is_defeated();
+    if (result.defeated) disable_defeated_body();
+    return result;
 }
 
 void EnemyShip::disable_defeated_body() noexcept

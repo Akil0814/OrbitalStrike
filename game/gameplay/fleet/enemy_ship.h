@@ -1,13 +1,13 @@
 #pragma once
 
-#include "projectile_interactor.h"
+#include "../projectile/projectile_interaction.h"
 
 #include "engine/core/game_object.h"
 #include "engine/core/render/color.h"
 #include "engine/physics/contracts/physics_participant.h"
 #include "engine/physics/contracts/physics_step_participant.h"
 
-namespace game::objects
+namespace game::fleet
 {
 enum class ShipRole : unsigned char
 {
@@ -41,8 +41,9 @@ struct EnemyShipConfig
     ShipRole role = ShipRole::Escort;
     ShipAbility ability = ShipAbility::None;
     int hit_points = 2;
-    RadialForceConfig radial_force{};
-    ProjectileDisposition projectile_disposition = ProjectileDisposition::Destroy;
+    game::projectile::RadialForceConfig radial_force{};
+    game::projectile::ProjectileDisposition projectile_disposition
+        = game::projectile::ProjectileDisposition::Destroy;
     float projectile_restitution = 1.0f;
     float knockback_impulse = 1200.0f;
     EnemyShipMotionConfig motion{};
@@ -52,7 +53,8 @@ struct EnemyShipConfig
 class EnemyShip final : public elysia::core::GameObject,
                         public elysia::physics::PhysicsParticipant,
                         public elysia::physics::PhysicsStepParticipant,
-                        public ProjectileInteractor
+                        public game::projectile::ProjectileForceSource,
+                        public game::projectile::ProjectileImpactTarget
 {
 public:
     explicit EnemyShip(EnemyShipConfig config);
@@ -63,9 +65,9 @@ public:
     void fixed_update(double fixed_delta_seconds) override;
 
     [[nodiscard]] elysia::core::Vector2 force_on(
-        const ProjectileState& projectile) const noexcept override;
-    [[nodiscard]] ProjectileCollisionResult on_projectile_hit(
-        const ProjectileHitContext& hit) override;
+        const game::projectile::ProjectileState& projectile) const noexcept override;
+    [[nodiscard]] game::projectile::ProjectileImpactResolution resolve_projectile_impact(
+        const game::projectile::ProjectileImpact& impact) override;
     [[nodiscard]] elysia::physics::ColliderId collider_id() const noexcept override
     {
         return physics_collider(0);
@@ -76,10 +78,11 @@ public:
     [[nodiscard]] int hit_points() const noexcept { return _hit_points; }
     [[nodiscard]] int maximum_hit_points() const noexcept { return _maximum_hit_points; }
     [[nodiscard]] bool is_defeated() const noexcept { return _hit_points <= 0; }
+    [[nodiscard]] game::combat::DamageResult receive_damage(
+        const game::combat::DamageSpec& damage) noexcept;
     void set_projectile_shielded(bool shielded) noexcept { _projectile_shielded = shielded; }
 
 private:
-    [[nodiscard]] bool apply_damage(int amount) noexcept;
     void disable_defeated_body() noexcept;
     void constrain_to_movement_bounds() noexcept;
 

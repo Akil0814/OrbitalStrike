@@ -5,6 +5,7 @@
 #include <string>
 #include <expected>
 #include <functional>
+#include <utility>
 namespace elysia::input
 {
 struct KeyboardPartition

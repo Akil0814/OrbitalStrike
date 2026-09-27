@@ -2,7 +2,7 @@
 
 #include "engine/core/game_object.h"
 
-namespace game::objects
+namespace game::launcher
 {
 class AimGuide final : public elysia::core::GameObject
 {

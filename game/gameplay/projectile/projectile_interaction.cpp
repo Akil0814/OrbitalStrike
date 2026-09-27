@@ -1,8 +1,8 @@
-#include "projectile_interactor.h"
+#include "projectile_interaction.h"
 
 #include <algorithm>
 
-namespace game::objects
+namespace game::projectile
 {
 elysia::core::Vector2 compute_radial_force(
     const RadialForceConfig& config,
@@ -29,5 +29,30 @@ elysia::core::Vector2 compute_radial_force(
     return config.mode == RadialForceMode::Attract
         ? -outward * magnitude
         : outward * magnitude;
+}
+
+ProjectileMotionResolution resolve_projectile_motion(
+    const ProjectileImpactResolution& resolution,
+    elysia::core::Vector2 incoming_velocity,
+    elysia::core::Vector2 contact_normal) noexcept
+{
+    switch (resolution.disposition)
+    {
+    case ProjectileDisposition::Continue:
+        return {.velocity = incoming_velocity, .should_finish = false};
+    case ProjectileDisposition::Reflect:
+    {
+        auto normal = contact_normal.normalized();
+        if (normal.is_zero()) normal = -incoming_velocity.normalized();
+        const auto reflected = incoming_velocity
+            - normal * (2.0f * incoming_velocity.dot(normal));
+        return {
+            .velocity = reflected * std::max(0.0f, resolution.restitution),
+            .should_finish = false};
+    }
+    case ProjectileDisposition::Destroy:
+    default:
+        return {.velocity = {}, .should_finish = true};
+    }
 }
 }

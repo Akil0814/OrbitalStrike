@@ -1,6 +1,6 @@
 #include "moon_cell.h"
 
-#include "collision_layers.h"
+#include "../collision_layers.h"
 #include "engine/core/render/render_command.h"
 #include "engine/resources/resource_service.h"
 
@@ -10,7 +10,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace game::objects
+namespace game::launcher
 {
 MoonCell::MoonCell(MoonCellConfig config)
     : GameObject(elysia::core::DepthLayer::Terrain, 5), _config(config)
@@ -51,8 +51,8 @@ MoonCell::MoonCell(MoonCellConfig config)
     _collider.shape = elysia::physics::CircleShape{
         .local_center = {_config.moon_radius, _config.moon_radius},
         .radius = _config.moon_radius};
-    _collider.filter.category = collision_layers::MoonCell;
-    _collider.filter.mask = collision_layers::Bullet;
+    _collider.filter.category = game::collision_layers::MoonCell;
+    _collider.filter.mask = game::collision_layers::Projectile;
     _collider.response = elysia::physics::CollisionResponse::Block;
     _collider.tag = "moon_cell";
 }
@@ -121,14 +121,17 @@ std::span<const elysia::physics::Collider> MoonCell::collider_definitions() cons
     return std::span<const elysia::physics::Collider>(&_collider, 1);
 }
 
-elysia::core::Vector2 MoonCell::force_on(const ProjectileState& projectile) const noexcept
+elysia::core::Vector2 MoonCell::force_on(
+    const game::projectile::ProjectileState& projectile) const noexcept
 {
-    return compute_radial_force(_config.radial_force, _config.moon_center, projectile);
+    return game::projectile::compute_radial_force(
+        _config.radial_force, _config.moon_center, projectile);
 }
 
-ProjectileCollisionResult MoonCell::on_projectile_hit(const ProjectileHitContext& hit)
+game::projectile::ProjectileImpactResolution MoonCell::resolve_projectile_impact(
+    const game::projectile::ProjectileImpact& impact)
 {
-    (void)hit;
-    return {.disposition = ProjectileDisposition::Destroy};
+    (void)impact;
+    return {.disposition = game::projectile::ProjectileDisposition::Destroy};
 }
 }

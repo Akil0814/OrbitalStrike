@@ -1,10 +1,10 @@
 #include "game_scene.h"
 
 #include "../level/game_level_catalog.h"
-#include "../objects/aim_guide.h"
-#include "../objects/bullet.h"
-#include "../objects/enemy_ship.h"
-#include "../objects/moon_cell.h"
+#include "../gameplay/fleet/enemy_ship.h"
+#include "../gameplay/launcher/aim_guide.h"
+#include "../gameplay/launcher/moon_cell.h"
+#include "../gameplay/projectile/projectile.h"
 
 #include "engine/camera/camera_manager.h"
 #include "engine/camera/follow_strategy.h"
@@ -19,7 +19,7 @@ namespace game::scene
 {
 GameScene::GameScene()
     : Scene(elysia::physics::PhysicsWorldConfig{.gravity = {}}),
-      _bullet_factory(*this)
+      _projectile_factory(*this)
 {
     _impact_hold_timer.set_one_shot(true);
     _impact_hold_timer.set_wait_time(1.0);
@@ -61,7 +61,7 @@ void GameScene::on_update(double delta)
     }
 
     auto* moon_cell = _level.moon_cell();
-    if (_state == RoundState::Aiming && moon_cell)
+    if (_round.is_aiming() && moon_cell)
     {
         _power = std::clamp(
             _power + _input.power_adjustment() * definition.launch.adjustment_rate * frame_delta,
@@ -114,7 +114,7 @@ void GameScene::on_routed_input(const elysia::input::InputSnapshot& input)
     const auto* definition = _level.definition();
     if (!definition) return;
 
-    if (_state == RoundState::Aiming)
+    if (_round.is_aiming())
     {
         if (auto* moon_cell = _level.moon_cell())
         {
@@ -136,35 +136,36 @@ void GameScene::on_routed_input(const elysia::input::InputSnapshot& input)
                        definition->camera.maximum_zoom));
     }
 
-    if (_state == RoundState::Aiming && commands.fire_pressed) launch_bullet();
-    else if (_state == RoundState::Victory && commands.restart_pressed) restart_level();
+    if (_round.is_aiming() && commands.fire_pressed) launch_projectile();
+    else if (_round.is_victorious() && commands.restart_pressed) restart_level();
 }
 
 void GameScene::on_fixed_update(std::uint64_t tick, double delta)
 {
     (void)tick;
     (void)delta;
-    if (_state != RoundState::Flight || !_active_bullet || _active_bullet->finished()) return;
-    const game::objects::ProjectileState projectile{
-        .position = _active_bullet->center(), .velocity = _active_bullet->velocity()};
+    if (!_round.is_in_flight() || !_active_projectile || _active_projectile->finished()) return;
+    const game::projectile::ProjectileState projectile{
+        .position = _active_projectile->center(), .velocity = _active_projectile->velocity()};
     elysia::core::Vector2 total_force{};
-    for (const auto* interactor : _level.interactors())
-        if (interactor) total_force += interactor->force_on(projectile);
+    for (const auto* source : _level.projectile_force_sources())
+        if (source) total_force += source->force_on(projectile);
     if (!total_force.is_zero())
-        (void)physics_world().apply_force(_active_bullet->physics_handle(), total_force);
+        (void)physics_world().apply_force(_active_projectile->physics_handle(), total_force);
 }
 
 void GameScene::on_scene_object_registered(elysia::core::SceneObject& object)
 {
-    if (auto* bullet = dynamic_cast<game::objects::Bullet*>(&object))
-        bullet->attach_collision_listener();
+    if (auto* projectile = dynamic_cast<game::projectile::Projectile*>(&object))
+        projectile->attach_collision_listener();
 }
 
 std::optional<elysia::camera::CameraFocus> GameScene::resolve_camera_focus() const
 {
-    if (_state == RoundState::Flight && _active_bullet && !_active_bullet->is_destroyed())
-        return elysia::camera::CameraFocus{_active_bullet->world_rect(), _active_bullet->world_rect()};
-    if ((_state == RoundState::Resolving || _state == RoundState::Victory) && _resolution_focus)
+    if (_round.is_in_flight() && _active_projectile && !_active_projectile->is_destroyed())
+        return elysia::camera::CameraFocus{
+            _active_projectile->world_rect(), _active_projectile->world_rect()};
+    if ((_round.is_resolving() || _round.is_victorious()) && _resolution_focus)
         return elysia::camera::CameraFocus{*_resolution_focus, *_resolution_focus};
     if (_level.moon_cell() && !_level.moon_cell()->is_destroyed())
     {
@@ -192,7 +193,7 @@ void GameScene::build_level()
     try
     {
         _level.build(*this, definition);
-        _aim_guide = create_and_add_object<game::objects::AimGuide>();
+        _aim_guide = create_and_add_object<game::launcher::AimGuide>();
         if (!_aim_guide) throw std::runtime_error("GameScene failed to create AimGuide.");
         _hud.build(*this);
 
@@ -204,7 +205,7 @@ void GameScene::build_level()
         moon_cell->set_aim_direction(initial_aim);
         _camera_pan_offset = {};
         _power = definition.launch.initial_power;
-        _state = RoundState::Aiming;
+        _round.reset();
         _impact_hold_timer.pause();
 
         auto* cameras = elysia::camera::CameraManager::instance();
@@ -224,13 +225,13 @@ void GameScene::build_level()
 
 void GameScene::clear_level() noexcept
 {
-    if (_active_bullet)
+    if (_active_projectile)
     {
-        _active_bullet->detach_collision_listener();
-        if (!_active_bullet->is_destroyed()) _active_bullet->destroy();
+        _active_projectile->detach_collision_listener();
+        if (!_active_projectile->is_destroyed()) _active_projectile->destroy();
     }
     if (_aim_guide && !_aim_guide->is_destroyed()) _aim_guide->destroy();
-    _active_bullet = nullptr;
+    _active_projectile = nullptr;
     _aim_guide = nullptr;
     _hud.clear();
     _level.clear();
@@ -239,7 +240,7 @@ void GameScene::clear_level() noexcept
     _resolution_focus.reset();
     _input.reset();
     _impact_hold_timer.pause();
-    _state = RoundState::Aiming;
+    _round.reset();
     auto* cameras = elysia::camera::CameraManager::instance();
     cameras->set_world_bounds(render_camera_slot(), std::nullopt);
     cameras->request_clear_effects(render_camera_slot());
@@ -253,9 +254,8 @@ void GameScene::restart_level()
 
 void GameScene::finish_resolution()
 {
-    if (_state != RoundState::Resolving) return;
+    if (!_round.finish_resolution()) return;
     _resolution_focus.reset();
-    _state = RoundState::Aiming;
     const auto* definition = _level.definition();
     const float target_zoom = definition ? definition->camera.initial_zoom : 0.6f;
     elysia::camera::CameraManager::instance()->request_zoom_to(
@@ -266,9 +266,9 @@ void GameScene::update_hud()
 {
     const auto* flagship = _level.fleet().flagship();
     _hud.update({
-        .victory = _state == RoundState::Victory,
-        .projectile_in_flight = _state == RoundState::Flight,
-        .resolving = _state == RoundState::Resolving,
+        .victory = _round.is_victorious(),
+        .projectile_in_flight = _round.is_in_flight(),
+        .resolving = _round.is_resolving(),
         .input_device = _input.last_input_device(),
         .power = _power,
         .flagship_hit_points = flagship ? flagship->hit_points() : 0,
@@ -277,62 +277,59 @@ void GameScene::update_hud()
         .living_escorts = _level.fleet().living_escort_count()});
 }
 
-void GameScene::launch_bullet()
+void GameScene::launch_projectile()
 {
     auto* moon_cell = _level.moon_cell();
     const auto* definition = _level.definition();
-    if (!moon_cell || !definition || _active_bullet) return;
+    if (!moon_cell || !definition || _active_projectile) return;
     const auto direction = moon_cell->aim_direction().normalized();
     if (direction.is_zero()) return;
 
     _resolution_focus.reset();
-    _state = RoundState::Flight;
-    _active_bullet = _bullet_factory.spawn({
+    _active_projectile = _projectile_factory.spawn({
         .position = moon_cell->muzzle_position() + direction * 10.0f,
         .velocity = direction * _power,
         .despawn_bounds = definition->map.projectile_bounds,
-        .damage = 1,
-        .lifetime_seconds = definition->launch.bullet_lifetime_seconds,
-        .on_hit = [this](const game::objects::ProjectileHitContext& hit) {
-            return on_bullet_hit(hit);
+        .definition = definition->launch.projectile,
+        .on_impact = [this](const game::projectile::ProjectileImpact& impact) {
+            return on_projectile_impact(impact);
         },
-        .on_finished = [this](game::objects::BulletEndReason reason) {
-            on_bullet_finished(reason);
+        .on_finished = [this](game::projectile::ProjectileEndReason reason) {
+            on_projectile_finished(reason);
         }});
-    if (_active_bullet) _camera_pan_offset = {};
-    else _state = RoundState::Aiming;
+    if (_active_projectile)
+    {
+        (void)_round.begin_projectile_flight();
+        _camera_pan_offset = {};
+    }
 }
 
-game::objects::ProjectileCollisionResult GameScene::on_bullet_hit(
-    const game::objects::ProjectileHitContext& hit)
+game::projectile::ProjectileImpactResolution GameScene::on_projectile_impact(
+    const game::projectile::ProjectileImpact& impact)
 {
-    const auto result = _level.resolve_projectile_hit(hit);
-    if (_level.fleet().flagship_defeated()) _state = RoundState::Victory;
+    const auto result = _level.resolve_projectile_impact(impact);
+    _round.record_impact(_level.fleet().flagship_defeated());
     return result;
 }
 
-void GameScene::on_bullet_finished(game::objects::BulletEndReason reason)
+void GameScene::on_projectile_finished(game::projectile::ProjectileEndReason reason)
 {
-    if (_active_bullet && reason == game::objects::BulletEndReason::Hit)
-        _resolution_focus = _active_bullet->world_rect();
-    _active_bullet = nullptr;
-    if (_state == RoundState::Flight)
+    if (_active_projectile && reason == game::projectile::ProjectileEndReason::Hit)
+        _resolution_focus = _active_projectile->world_rect();
+    _active_projectile = nullptr;
+    const auto action = _round.finish_projectile(reason);
+    if (action == game::session::ProjectileCompletionAction::BeginResolution)
     {
-        if (reason == game::objects::BulletEndReason::Hit)
-        {
-            _state = RoundState::Resolving;
-            _impact_hold_timer.restart();
-        }
-        else
-        {
-            _resolution_focus.reset();
-            _state = RoundState::Aiming;
-            _impact_hold_timer.pause();
-            const auto* definition = _level.definition();
-            const float target_zoom = definition ? definition->camera.initial_zoom : 0.6f;
-            elysia::camera::CameraManager::instance()->request_zoom_to(
-                render_camera_slot(), target_zoom, 0.35);
-        }
+        _impact_hold_timer.restart();
+    }
+    else if (action == game::session::ProjectileCompletionAction::ReturnToAiming)
+    {
+        _resolution_focus.reset();
+        _impact_hold_timer.pause();
+        const auto* definition = _level.definition();
+        const float target_zoom = definition ? definition->camera.initial_zoom : 0.6f;
+        elysia::camera::CameraManager::instance()->request_zoom_to(
+            render_camera_slot(), target_zoom, 0.35);
     }
 }
 }

@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.24)
 project(OrbitalStrike LANGUAGES C CXX)
 
+include(CTest)
+
 add_subdirectory(thirdparty/box2d EXCLUDE_FROM_ALL)
 add_subdirectory(thirdparty/enet EXCLUDE_FROM_ALL  )
 
@@ -60,3 +62,7 @@ add_executable(OrbitalStrike "main.cpp")
 target_link_libraries(OrbitalStrike PRIVATE game_lib)
 
 elysia_copy_sdl_runtime(OrbitalStrike)
+
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()

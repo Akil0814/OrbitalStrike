@@ -5,7 +5,7 @@
 #include <span>
 #include <vector>
 
-namespace game::objects
+namespace game::fleet
 {
 class EnemyFleet final
 {
@@ -22,8 +22,8 @@ public:
     [[nodiscard]] int living_escort_count() const noexcept;
     [[nodiscard]] bool flagship_shield_active() const noexcept;
     [[nodiscard]] bool flagship_defeated() const noexcept;
-    [[nodiscard]] ProjectileCollisionResult resolve_projectile_hit(
-        EnemyShip& target, const ProjectileHitContext& hit);
+    [[nodiscard]] game::projectile::ProjectileImpactResolution resolve_projectile_impact(
+        EnemyShip& target, const game::projectile::ProjectileImpact& impact);
 
 private:
     void refresh_flagship_shield() noexcept;

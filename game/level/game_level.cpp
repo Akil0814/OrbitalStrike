@@ -1,7 +1,6 @@
 #include "game_level.h"
 
-#include "../objects/arena_backdrop.h"
-#include "../objects/projectile_interactor.h"
+#include "../presentation/backdrop/arena_backdrop.h"
 #include "engine/scene/scene.h"
 
 #include <algorithm>
@@ -16,25 +15,31 @@ void GameLevel::build(elysia::scene::Scene& scene, const GameLevelDefinition& de
     _definition = &definition;
     _ships.reserve(definition.ships.size());
     _anomalies.reserve(definition.anomalies.size());
-    _interactors.reserve(1 + definition.ships.size() + definition.anomalies.size());
-    _background = scene.create_and_add_object<game::objects::ArenaBackdrop>(
+    _force_sources.reserve(1 + definition.ships.size() + definition.anomalies.size());
+    _impact_targets.reserve(1 + definition.ships.size());
+    _background = scene.create_and_add_object<game::presentation::ArenaBackdrop>(
         definition.map.backdrop_bounds, definition.map.starfield);
-    _moon_cell = scene.create_and_add_object<game::objects::MoonCell>(definition.moon_cell);
-    if (_moon_cell) _interactors.push_back(_moon_cell);
+    _moon_cell = scene.create_and_add_object<game::launcher::MoonCell>(definition.moon_cell);
+    if (_moon_cell)
+    {
+        _force_sources.push_back(_moon_cell);
+        _impact_targets.push_back(_moon_cell);
+    }
 
     for (const auto& ship_config : definition.ships)
     {
-        auto* ship = scene.create_and_add_object<game::objects::EnemyShip>(ship_config);
+        auto* ship = scene.create_and_add_object<game::fleet::EnemyShip>(ship_config);
         if (!ship) continue;
         _ships.push_back(ship);
-        _interactors.push_back(ship);
+        _force_sources.push_back(ship);
+        _impact_targets.push_back(ship);
     }
     for (const auto& anomaly_config : definition.anomalies)
     {
-        auto* anomaly = scene.create_and_add_object<game::objects::SpaceAnomaly>(anomaly_config);
+        auto* anomaly = scene.create_and_add_object<game::anomaly::SpaceAnomaly>(anomaly_config);
         if (!anomaly) continue;
         _anomalies.push_back(anomaly);
-        _interactors.push_back(anomaly);
+        _force_sources.push_back(anomaly);
     }
 
     if (!_background || !_moon_cell || _ships.size() != definition.ships.size()
@@ -58,7 +63,8 @@ void GameLevel::clear() noexcept
     for (auto* ship : _ships) destroy(ship);
     destroy(_moon_cell);
     destroy(_background);
-    _interactors.clear();
+    _impact_targets.clear();
+    _force_sources.clear();
     _anomalies.clear();
     _ships.clear();
     _moon_cell = nullptr;
@@ -66,13 +72,13 @@ void GameLevel::clear() noexcept
     _definition = nullptr;
 }
 
-game::objects::ProjectileCollisionResult GameLevel::resolve_projectile_hit(
-    const game::objects::ProjectileHitContext& hit)
+game::projectile::ProjectileImpactResolution GameLevel::resolve_projectile_impact(
+    const game::projectile::ProjectileImpact& impact)
 {
-    if (auto* ship = _fleet.find_ship(hit.target_collider))
-        return _fleet.resolve_projectile_hit(*ship, hit);
-    if (auto* interactor = find_interactor(hit.target_collider))
-        return interactor->on_projectile_hit(hit);
+    if (auto* ship = _fleet.find_ship(impact.target_collider))
+        return _fleet.resolve_projectile_impact(*ship, impact);
+    if (auto* target = find_impact_target(impact.target_collider))
+        return target->resolve_projectile_impact(impact);
     return {};
 }
 
@@ -81,13 +87,13 @@ void GameLevel::set_backdrop_visible_bounds(elysia::core::Rect bounds) noexcept
     if (_background) _background->set_visible_bounds(bounds);
 }
 
-game::objects::ProjectileInteractor* GameLevel::find_interactor(
+game::projectile::ProjectileImpactTarget* GameLevel::find_impact_target(
     elysia::physics::ColliderId collider) const noexcept
 {
     if (collider == elysia::physics::InvalidColliderId) return nullptr;
-    const auto found = std::ranges::find_if(_interactors, [collider](const auto* interactor) {
-        return interactor && interactor->collider_id() == collider;
+    const auto found = std::ranges::find_if(_impact_targets, [collider](const auto* target) {
+        return target && target->collider_id() == collider;
     });
-    return found == _interactors.end() ? nullptr : *found;
+    return found == _impact_targets.end() ? nullptr : *found;
 }
 }

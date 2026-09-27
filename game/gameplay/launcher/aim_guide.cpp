@@ -2,7 +2,7 @@
 
 #include "engine/core/render/render_command.h"
 
-namespace game::objects
+namespace game::launcher
 {
 AimGuide::AimGuide() : GameObject(elysia::core::DepthLayer::EffectFront) {}
 

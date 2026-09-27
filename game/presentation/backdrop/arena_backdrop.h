@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace game::objects
+namespace game::presentation
 {
 class ArenaBackdrop final : public elysia::core::GameObject, public elysia::core::Updatable
 {

@@ -1,9 +1,10 @@
 #pragma once
 
 #include "game_map_config.h"
-#include "../objects/enemy_ship.h"
-#include "../objects/moon_cell.h"
-#include "../objects/space_anomaly.h"
+#include "../gameplay/anomaly/space_anomaly.h"
+#include "../gameplay/fleet/enemy_ship.h"
+#include "../gameplay/launcher/moon_cell.h"
+#include "../gameplay/projectile/projectile_definition.h"
 
 #include "engine/core/geometry/rect.h"
 
@@ -34,7 +35,7 @@ struct GameLaunchConfig
     float maximum_power = 1700.0f;
     float initial_power = 1050.0f;
     float adjustment_rate = 350.0f;
-    double bullet_lifetime_seconds = 20.0;
+    game::projectile::ProjectileDefinition projectile{.lifetime_seconds = 20.0};
 };
 
 struct GameLevelDefinition
@@ -42,8 +43,8 @@ struct GameLevelDefinition
     GameMapConfig map{};
     GameCameraConfig camera{};
     GameLaunchConfig launch{};
-    game::objects::MoonCellConfig moon_cell{};
-    std::vector<game::objects::EnemyShipConfig> ships;
-    std::vector<game::objects::SpaceAnomalyConfig> anomalies;
+    game::launcher::MoonCellConfig moon_cell{};
+    std::vector<game::fleet::EnemyShipConfig> ships;
+    std::vector<game::anomaly::SpaceAnomalyConfig> anomalies;
 };
 }

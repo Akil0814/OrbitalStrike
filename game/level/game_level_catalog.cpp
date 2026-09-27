@@ -9,15 +9,15 @@ namespace
 constexpr elysia::core::Rect kAimingBounds{0.0f, 0.0f, 2800.0f, 5050.0f};
 constexpr elysia::core::Rect kFleetBounds{200.0f, 200.0f, 2400.0f, 1700.0f};
 
-game::objects::RadialForceConfig radial_force(
-    game::objects::RadialForceMode mode, float strength, float range,
+game::projectile::RadialForceConfig radial_force(
+    game::projectile::RadialForceMode mode, float strength, float range,
     float minimum_distance, float maximum_force)
 {
     return {.mode = mode, .strength = strength, .maximum_range = range,
             .minimum_distance = minimum_distance, .maximum_force = maximum_force};
 }
 
-game::objects::EnemyShipMotionConfig ship_motion(float mass)
+game::fleet::EnemyShipMotionConfig ship_motion(float mass)
 {
     return {.mass = mass, .linear_damping = 1.5f, .movement_bounds = kFleetBounds};
 }
@@ -25,7 +25,10 @@ game::objects::EnemyShipMotionConfig ship_motion(float mass)
 
 const GameLevelDefinition& GameLevelCatalog::get(GameLevelId level_id)
 {
-    using namespace game::objects;
+    using namespace game::anomaly;
+    using namespace game::fleet;
+    using namespace game::launcher;
+    using namespace game::projectile;
     static const GameLevelDefinition prototype{
         .map = make_game_map_config(GameMapSize::Standard),
         .camera = {.aiming_bounds = kAimingBounds, .initial_zoom = 0.6f,
@@ -33,7 +36,7 @@ const GameLevelDefinition& GameLevelCatalog::get(GameLevelId level_id)
                    .pan_speed = 800.0f, .cannon_screen_offset_ratio = 0.3f},
         .launch = {.minimum_power = 600.0f, .maximum_power = 1900.0f,
                    .initial_power = 1200.0f, .adjustment_rate = 350.0f,
-                   .bullet_lifetime_seconds = 20.0},
+                   .projectile = {.lifetime_seconds = 20.0}},
         .moon_cell = {
             .moon_center = {1400.0f, 5950.0f}, .moon_radius = 1050.0f,
             .cannon_pivot = {1400.0f, 4850.0f}, .barrel_length = 140.0f,

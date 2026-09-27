@@ -1,7 +1,7 @@
 #pragma once
 
-#include "projectile_interactor.h"
-#include "../resources/game_texture_keys.h"
+#include "../projectile/projectile_interaction.h"
+#include "../../resources/game_texture_keys.h"
 
 #include "engine/core/game_object.h"
 #include "engine/physics/contracts/physics_participant.h"
@@ -10,7 +10,7 @@
 
 struct SDL_Texture;
 
-namespace game::objects
+namespace game::launcher
 {
 struct MoonCellConfig
 {
@@ -24,12 +24,13 @@ struct MoonCellConfig
     elysia::core::Vector2 base_visual_anchor{0.5f, 0.575f};
     elysia::core::Vector2 cannon_visual_size{406.0f, 399.0f};
     elysia::core::Vector2 cannon_visual_anchor{0.5f, 0.703f};
-    RadialForceConfig radial_force{};
+    game::projectile::RadialForceConfig radial_force{};
 };
 
 class MoonCell final : public elysia::core::GameObject,
                        public elysia::physics::PhysicsParticipant,
-                       public ProjectileInteractor
+                       public game::projectile::ProjectileForceSource,
+                       public game::projectile::ProjectileImpactTarget
 {
 public:
     explicit MoonCell(MoonCellConfig config);
@@ -51,9 +52,9 @@ public:
     }
 
     [[nodiscard]] elysia::core::Vector2 force_on(
-        const ProjectileState& projectile) const noexcept override;
-    [[nodiscard]] ProjectileCollisionResult on_projectile_hit(
-        const ProjectileHitContext& hit) override;
+        const game::projectile::ProjectileState& projectile) const noexcept override;
+    [[nodiscard]] game::projectile::ProjectileImpactResolution resolve_projectile_impact(
+        const game::projectile::ProjectileImpact& impact) override;
     [[nodiscard]] elysia::physics::ColliderId collider_id() const noexcept override
     {
         return physics_collider(0);

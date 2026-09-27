@@ -7,7 +7,7 @@
 #include <cmath>
 #include <numbers>
 
-namespace game::objects
+namespace game::presentation
 {
 ArenaBackdrop::ArenaBackdrop(elysia::core::Rect bounds, StarfieldConfig config)
     : GameObject(elysia::core::DepthLayer::Background)

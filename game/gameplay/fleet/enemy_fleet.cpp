@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <stdexcept>
 
-namespace game::objects
+namespace game::fleet
 {
 void EnemyFleet::configure(std::span<EnemyShip* const> ships)
 {
@@ -55,14 +55,21 @@ bool EnemyFleet::flagship_defeated() const noexcept
     return _flagship && _flagship->is_defeated();
 }
 
-ProjectileCollisionResult EnemyFleet::resolve_projectile_hit(
-    EnemyShip& target, const ProjectileHitContext& hit)
+game::projectile::ProjectileImpactResolution EnemyFleet::resolve_projectile_impact(
+    EnemyShip& target, const game::projectile::ProjectileImpact& impact)
 {
     refresh_flagship_shield();
     if (&target == _flagship && flagship_shield_active())
-        return {.disposition = ProjectileDisposition::Reflect, .restitution = 0.85f};
+        return {
+            .disposition = game::projectile::ProjectileDisposition::Reflect,
+            .restitution = 0.85f,
+            .damage = {
+                .requested = impact.damage.amount,
+                .applied = 0,
+                .blocked = true,
+                .defeated = target.is_defeated()}};
 
-    const auto result = target.on_projectile_hit(hit);
+    const auto result = target.resolve_projectile_impact(impact);
     refresh_flagship_shield();
     return result;
 }
