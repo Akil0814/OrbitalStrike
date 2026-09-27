@@ -24,9 +24,9 @@ elysia::application::ApplicationDescriptor GameModule::descriptor() const
     descriptor.logical_width = 1280;
     descriptor.logical_height = 720;
     descriptor.presentation.render.texture_filter =
-        elysia::application::ApplicationTextureFilter::Nearest;
+        elysia::application::ApplicationTextureFilter::Linear;
     descriptor.presentation.ui.default_theme =
-        elysia::ui::UiBuiltinTheme::QuietSlate;
+        elysia::ui::UiBuiltinTheme::BlueGlassMoon;
     descriptor.presentation.startup.engine_logo =
         elysia::application::ApplicationEngineLogoVariant::White;
     descriptor.presentation.fonts.ui.source =

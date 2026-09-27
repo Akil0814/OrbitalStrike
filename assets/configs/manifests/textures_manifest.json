@@ -1,4 +1,14 @@
 {
   "textures": {
+    "moon_cell_base": {
+      "path": "moon_cell_base.png"
+    },
+    "moon_cell": {
+      "path": "moon_cell.png"
+    },
+    "projectile": {
+      "path": "projectile.png"
+    }
+
   }
 }

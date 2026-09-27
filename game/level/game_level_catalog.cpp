@@ -36,8 +36,7 @@ const GameLevelDefinition& GameLevelCatalog::get(GameLevelId level_id)
                    .bullet_lifetime_seconds = 20.0},
         .moon_cell = {
             .moon_center = {1400.0f, 5950.0f}, .moon_radius = 1050.0f,
-            .cannon_pivot = {1400.0f, 4850.0f}, .cannon_base_size = {120.0f, 70.0f},
-            .barrel_length = 140.0f, .barrel_thickness = 20.0f,
+            .cannon_pivot = {1400.0f, 4850.0f}, .barrel_length = 140.0f,
             .radial_force = radial_force(RadialForceMode::Attract, 18.0f, 1500.0f, 1050.0f, 25.0f)},
         .ships = {
             EnemyShipConfig{

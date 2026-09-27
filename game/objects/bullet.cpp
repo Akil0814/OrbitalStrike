@@ -5,6 +5,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <numbers>
+#include <stdexcept>
 #include <utility>
 
 namespace game::objects
@@ -14,15 +16,27 @@ Bullet::Bullet(BulletConfig config)
       _config(std::move(config)),
       _pre_collision_velocity(_config.velocity)
 {
+    if (!_config.texture)
+        throw std::invalid_argument("Bullet requires a projectile texture.");
     _config.radius = std::max(1.0f, std::isfinite(_config.radius) ? _config.radius : 8.0f);
+    _config.visual_size.x = std::max(
+        1.0f, std::isfinite(_config.visual_size.x) ? _config.visual_size.x : 80.0f);
+    _config.visual_size.y = std::max(
+        1.0f, std::isfinite(_config.visual_size.y) ? _config.visual_size.y : 53.3333f);
+    _config.visual_anchor.x = std::clamp(
+        std::isfinite(_config.visual_anchor.x) ? _config.visual_anchor.x : 0.65f, 0.0f, 1.0f);
+    _config.visual_anchor.y = std::clamp(
+        std::isfinite(_config.visual_anchor.y) ? _config.visual_anchor.y : 0.5f, 0.0f, 1.0f);
     _config.lifetime_seconds = std::max(0.1, std::isfinite(_config.lifetime_seconds) ? _config.lifetime_seconds : 8.0);
     _config.damage = std::max(1, _config.damage);
+    const auto initial_direction = _config.velocity.normalized();
+    if (!initial_direction.is_zero()) _visual_direction = initial_direction;
     set_world_rect({_config.position.x - _config.radius, _config.position.y - _config.radius,
                     2.0f * _config.radius, 2.0f * _config.radius});
     _collider.shape = elysia::physics::CircleShape{
         .local_center = {_config.radius, _config.radius}, .radius = _config.radius};
     _collider.filter.category = collision_layers::Bullet;
-    _collider.filter.mask = collision_layers::EnemyShip;
+    _collider.filter.mask = collision_layers::EnemyShip | collision_layers::MoonCell;
     _collider.detection_mode = elysia::physics::CollisionDetectionMode::Continuous;
     _collider.material.restitution = 0.0f;
     _collider.tag = "bullet";
@@ -32,8 +46,18 @@ Bullet::~Bullet() { detach_collision_listener(); }
 
 void Bullet::submit_render_commands(std::vector<elysia::core::RenderCommand>& out_commands) const
 {
-    out_commands.push_back(elysia::core::make_world_fill_circle_command(center(), _config.radius, {255, 235, 135}));
-    out_commands.push_back(elysia::core::make_world_draw_circle_command(center(), _config.radius, {255, 255, 255}, 1.5f));
+    elysia::core::RenderCommand command;
+    command.type = elysia::core::RenderCommandType::Texture;
+    command.texture = _config.texture;
+    command.command_rect = {
+        center().x - _config.visual_size.x * _config.visual_anchor.x,
+        center().y - _config.visual_size.y * _config.visual_anchor.y,
+        _config.visual_size.x,
+        _config.visual_size.y};
+    command.rotation_degrees = std::atan2(_visual_direction.y, _visual_direction.x)
+        * 180.0 / std::numbers::pi;
+    command.rotation_origin = _config.visual_anchor;
+    out_commands.push_back(command);
 }
 
 void Bullet::update(double delta_seconds)
@@ -50,7 +74,10 @@ void Bullet::update(double delta_seconds)
 void Bullet::fixed_update(double fixed_delta_seconds)
 {
     (void)fixed_delta_seconds;
-    if (!_finished) _pre_collision_velocity = velocity();
+    if (_finished) return;
+    _pre_collision_velocity = velocity();
+    const auto direction = _pre_collision_velocity.normalized();
+    if (!direction.is_zero()) _visual_direction = direction;
 }
 
 void Bullet::on_collision_event(const elysia::physics::CollisionEvent& event)
@@ -81,6 +108,8 @@ void Bullet::on_collision_event(const elysia::physics::CollisionEvent& event)
     {
     case ProjectileDisposition::Continue:
         set_velocity(_pre_collision_velocity);
+        if (!_pre_collision_velocity.is_zero())
+            _visual_direction = _pre_collision_velocity.normalized();
         return;
     case ProjectileDisposition::Reflect:
     {
@@ -88,7 +117,10 @@ void Bullet::on_collision_event(const elysia::physics::CollisionEvent& event)
         if (normal.is_zero()) normal = -_pre_collision_velocity.normalized();
         const auto reflected = _pre_collision_velocity
             - normal * (2.0f * _pre_collision_velocity.dot(normal));
-        set_velocity(reflected * std::max(0.0f, result.restitution));
+        const auto reflected_velocity = reflected * std::max(0.0f, result.restitution);
+        set_velocity(reflected_velocity);
+        if (!reflected_velocity.is_zero())
+            _visual_direction = reflected_velocity.normalized();
         return;
     }
     case ProjectileDisposition::Destroy:

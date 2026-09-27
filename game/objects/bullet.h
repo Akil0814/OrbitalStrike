@@ -10,6 +10,8 @@
 
 #include <functional>
 
+struct SDL_Texture;
+
 namespace game::objects
 {
 enum class BulletEndReason : unsigned char { Hit, Expired, OutOfBounds };
@@ -18,6 +20,9 @@ struct BulletConfig
 {
     elysia::core::Vector2 position{}, velocity{};
     elysia::core::Rect despawn_bounds{0.0f, 0.0f, 1600.0f, 1000.0f};
+    SDL_Texture* texture = nullptr;
+    elysia::core::Vector2 visual_size{160.0f, 106.0f};
+    elysia::core::Vector2 visual_anchor{0.65f, 0.5f};
     float radius = 8.0f;
     int damage = 1;
     double lifetime_seconds = 8.0;
@@ -48,6 +53,7 @@ private:
     BulletConfig _config;
     elysia::physics::Collider _collider{};
     elysia::core::Vector2 _pre_collision_velocity{};
+    elysia::core::Vector2 _visual_direction{1.0f, 0.0f};
     double _age_seconds = 0.0;
     bool _listening = false, _finished = false;
 };

@@ -3,6 +3,7 @@
 #include "engine/scene/scene.h"
 #include "engine/ui/text/ui_text_content.h"
 #include "engine/ui/widgets/label/ui_label.h"
+#include "engine/ui/widgets/ui_bar.h"
 
 #include <cmath>
 #include <stdexcept>

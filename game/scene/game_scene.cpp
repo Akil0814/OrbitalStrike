@@ -8,6 +8,7 @@
 
 #include "engine/camera/camera_manager.h"
 #include "engine/camera/follow_strategy.h"
+#include "engine/tools/debug_draw.h"
 
 #include <algorithm>
 #include <cmath>
@@ -33,6 +34,9 @@ void GameScene::on_enter(const elysia::scene::ScenePayload& payload)
     if (_level.is_built()) clear_level();
     _level_id = game_payload->level_id;
     build_level();
+
+    ELYSIA_DEBUG_DRAW->set_enabled(true);
+    ELYSIA_DEBUG_DRAW->set_enabled_categories(elysia::tools::DebugDrawCategory::All);
 }
 
 void GameScene::on_exit() { clear_level(); }
@@ -206,7 +210,7 @@ void GameScene::build_level()
         auto* cameras = elysia::camera::CameraManager::instance();
         cameras->set_follow_strategy(
             render_camera_slot(), std::make_unique<elysia::camera::SmoothFollowStrategy>(1800.0));
-        cameras->set_world_bounds(render_camera_slot(), definition.map.backdrop_bounds);
+        cameras->set_world_bounds(render_camera_slot(), definition.map.activity_bounds);
         cameras->set_zoom(render_camera_slot(), definition.camera.initial_zoom);
         _level.set_backdrop_visible_bounds(camera().view_rect());
         update_hud();
