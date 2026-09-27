@@ -195,7 +195,9 @@ void GameScene::build_level()
         _level.build(*this, definition);
         _aim_guide = create_and_add_object<game::launcher::AimGuide>();
         if (!_aim_guide) throw std::runtime_error("GameScene failed to create AimGuide.");
-        _hud.build(*this);
+        _hud.build(*this, {
+            static_cast<float>(runtime_context().logical_width()),
+            static_cast<float>(runtime_context().logical_height())});
 
         auto* flagship = _level.fleet().flagship();
         auto* moon_cell = _level.moon_cell();
@@ -265,12 +267,15 @@ void GameScene::finish_resolution()
 void GameScene::update_hud()
 {
     const auto* flagship = _level.fleet().flagship();
+    const auto* definition = _level.definition();
     _hud.update({
         .victory = _round.is_victorious(),
         .projectile_in_flight = _round.is_in_flight(),
         .resolving = _round.is_resolving(),
         .input_device = _input.last_input_device(),
         .power = _power,
+        .minimum_power = definition ? definition->launch.minimum_power : 0.0f,
+        .maximum_power = definition ? definition->launch.maximum_power : 1.0f,
         .flagship_hit_points = flagship ? flagship->hit_points() : 0,
         .flagship_maximum_hit_points = flagship ? flagship->maximum_hit_points() : 0,
         .flagship_shield_active = _level.fleet().flagship_shield_active(),

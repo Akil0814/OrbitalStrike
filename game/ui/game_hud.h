@@ -1,19 +1,15 @@
 #pragma once
 
+#include "engine/core/geometry/vector2.h"
 #include "engine/input/input_types.h"
-
-#include <string>
 
 namespace elysia::scene { class Scene; }
 
 namespace elysia::ui
-{ 
-    class UiPanel;
-    class UiLabel;
-    class UiButton;
-    class UiBar;
-    class UiWindow;
-    class UiConfirmationDialog;
+{
+class UiPanel;
+class UiLabel;
+class UiBar;
 }
 
 namespace game::ui
@@ -25,8 +21,9 @@ struct GameHudModel
     bool resolving = false;
     elysia::input::InputDevice input_device = elysia::input::InputDevice::Keyboard;
 
-    float power = 0.0f;//0 to 1;
-    float enemy_charge_level = 0.0f;
+    float power = 0.0f;
+    float minimum_power = 0.0f;
+    float maximum_power = 1.0f;
 
     int flagship_hit_points = 0;
     int flagship_maximum_hit_points = 0;
@@ -37,22 +34,19 @@ struct GameHudModel
 class GameHud final
 {
 public:
-    void build(elysia::scene::Scene& scene);
+    void build(elysia::scene::Scene& scene, elysia::core::Vector2 viewport_size);
     void update(const GameHudModel& model);
     void clear() noexcept;
-    [[nodiscard]] bool is_built() const noexcept { return _panel != nullptr; }
+    [[nodiscard]] bool is_built() const noexcept { return _root != nullptr; }
 
 private:
-    elysia::ui::UiPanel* _panel = nullptr;
-    elysia::ui::UiWindow* _hud_window = nullptr;
-
+    elysia::ui::UiPanel* _root = nullptr;
     elysia::ui::UiBar* _power_bar = nullptr;
-    elysia::ui::UiBar* _enemy_charge_level = nullptr;
-
-    elysia::ui::UiLabel* _current_status_lable = nullptr;
-    elysia::ui::UiLabel* _lable = nullptr;
-
-    elysia::ui::UiButton* _pause_button = nullptr;
-    elysia::ui::UiConfirmationDialog* _exit_confirmation = nullptr;
+    elysia::ui::UiBar* _flagship_health_bar = nullptr;
+    elysia::ui::UiLabel* _power_label = nullptr;
+    elysia::ui::UiLabel* _status_label = nullptr;
+    elysia::ui::UiLabel* _objective_label = nullptr;
+    elysia::ui::UiLabel* _fleet_label = nullptr;
+    elysia::ui::UiLabel* _hint_label = nullptr;
 };
 }
