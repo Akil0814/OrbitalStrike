@@ -50,6 +50,11 @@ ProjectileMotionResolution resolve_projectile_motion(
             .velocity = reflected * std::max(0.0f, resolution.restitution),
             .should_finish = false};
     }
+    case ProjectileDisposition::Teleport:
+        return {
+            .velocity = incoming_velocity,
+            .teleport_position = resolution.teleport_position,
+            .should_finish = !resolution.teleport_position.has_value()};
     case ProjectileDisposition::Destroy:
     default:
         return {.velocity = {}, .should_finish = true};

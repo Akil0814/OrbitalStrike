@@ -7,4 +7,5 @@ namespace game::collision_layers
 inline constexpr elysia::physics::CollisionBits EnemyShip = 1u << 0;
 inline constexpr elysia::physics::CollisionBits Projectile = 1u << 1;
 inline constexpr elysia::physics::CollisionBits MoonCell = 1u << 2;
+inline constexpr elysia::physics::CollisionBits SpaceAnomaly = 1u << 3;
 }

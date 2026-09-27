@@ -38,13 +38,21 @@ struct GameLaunchConfig
     game::projectile::ProjectileDefinition projectile{.lifetime_seconds = 20.0};
 };
 
+struct GameMissionConfig
+{
+    int maximum_rounds = 10;
+    double flagship_warning_seconds = 1.25;
+    double flagship_firing_seconds = 0.45;
+};
+
 struct GameLevelDefinition
 {
     GameMapConfig map{};
     GameCameraConfig camera{};
     GameLaunchConfig launch{};
+    GameMissionConfig mission{};
     game::launcher::MoonCellConfig moon_cell{};
     std::vector<game::fleet::EnemyShipConfig> ships;
-    std::vector<game::anomaly::SpaceAnomalyConfig> anomalies;
+    std::vector<game::anomaly::SpaceAnomalyDefinition> anomalies;
 };
 }

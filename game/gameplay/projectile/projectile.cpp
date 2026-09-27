@@ -43,7 +43,8 @@ Projectile::Projectile(ProjectileConfig config)
         .local_center = {definition.radius, definition.radius}, .radius = definition.radius};
     _collider.filter.category = game::collision_layers::Projectile;
     _collider.filter.mask = game::collision_layers::EnemyShip
-        | game::collision_layers::MoonCell;
+        | game::collision_layers::MoonCell
+        | game::collision_layers::SpaceAnomaly;
     _collider.detection_mode = elysia::physics::CollisionDetectionMode::Continuous;
     _collider.material.restitution = 0.0f;
     _collider.tag = "projectile";
@@ -126,6 +127,13 @@ void Projectile::on_collision_event(const elysia::physics::CollisionEvent& event
         finish(ProjectileEndReason::Hit);
         return;
     }
+    if (motion.teleport_position && physics_world())
+        (void)physics_world()->teleport_object(
+            physics_handle(),
+            *motion.teleport_position
+                - elysia::core::Vector2{
+                    _config.definition.radius, _config.definition.radius},
+            elysia::physics::TeleportVelocityMode::Preserve);
     set_velocity(motion.velocity);
     if (!motion.velocity.is_zero()) _visual_direction = motion.velocity.normalized();
 }

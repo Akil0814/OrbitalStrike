@@ -37,6 +37,8 @@ const GameLevelDefinition& GameLevelCatalog::get(GameLevelId level_id)
         .launch = {.minimum_power = 600.0f, .maximum_power = 1900.0f,
                    .initial_power = 1200.0f, .adjustment_rate = 350.0f,
                    .projectile = {.lifetime_seconds = 20.0}},
+        .mission = {.maximum_rounds = 10, .flagship_warning_seconds = 1.25,
+                    .flagship_firing_seconds = 0.45},
         .moon_cell = {
             .moon_center = {1400.0f, 5950.0f}, .moon_radius = 1050.0f,
             .cannon_pivot = {1400.0f, 4850.0f}, .barrel_length = 140.0f,
@@ -64,16 +66,23 @@ const GameLevelDefinition& GameLevelCatalog::get(GameLevelId level_id)
                 .motion = ship_motion(25.0f), .color = {72, 154, 232}}
         },
         .anomalies = {
-            SpaceAnomalyConfig{
+            RadialFieldAnomalyConfig{
                 .kind = SpaceAnomalyKind::GravityWell, .center = {900.0f, 2850.0f},
                 .visual_radius = 125.0f,
                 .radial_force = radial_force(RadialForceMode::Attract, 78.0f, 900.0f, 150.0f, 130.0f),
                 .color = {76, 148, 255}},
-            SpaceAnomalyConfig{
-                .kind = SpaceAnomalyKind::RepulsionField, .center = {1950.0f, 3850.0f},
-                .visual_radius = 120.0f,
-                .radial_force = radial_force(RadialForceMode::Repel, 66.0f, 760.0f, 140.0f, 115.0f),
-                .color = {212, 78, 224}}
+            WormholePairConfig{
+                .first_center = {2050.0f, 3900.0f},
+                .second_center = {1850.0f, 2100.0f},
+                .portal_radius = 75.0f,
+                .exit_offset = 96.0f},
+            BlackHoleConfig{
+                .center = {650.0f, 2050.0f},
+                .visual_radius = 125.0f,
+                .event_horizon_radius = 70.0f,
+                .radial_force = radial_force(
+                    RadialForceMode::Attract, 240.0f, 900.0f, 60.0f, 300.0f),
+                .color = {116, 74, 210}}
         }};
 
     switch (level_id)

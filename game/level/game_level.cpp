@@ -1,10 +1,13 @@
 #include "game_level.h"
 
+#include "../gameplay/anomaly/black_hole_anomaly.h"
+#include "../gameplay/anomaly/wormhole_portal.h"
 #include "../presentation/backdrop/arena_backdrop.h"
 #include "engine/scene/scene.h"
 
 #include <algorithm>
 #include <stdexcept>
+#include <type_traits>
 
 namespace game::level
 {
@@ -34,16 +37,54 @@ void GameLevel::build(elysia::scene::Scene& scene, const GameLevelDefinition& de
         _force_sources.push_back(ship);
         _impact_targets.push_back(ship);
     }
-    for (const auto& anomaly_config : definition.anomalies)
+    const auto register_anomaly = [this](game::anomaly::SpaceAnomaly* anomaly)
     {
-        auto* anomaly = scene.create_and_add_object<game::anomaly::SpaceAnomaly>(anomaly_config);
-        if (!anomaly) continue;
+        if (!anomaly) return false;
         _anomalies.push_back(anomaly);
-        _force_sources.push_back(anomaly);
-    }
+        if (auto* source = dynamic_cast<game::projectile::ProjectileForceSource*>(anomaly))
+            _force_sources.push_back(source);
+        if (auto* target = dynamic_cast<game::projectile::ProjectileImpactTarget*>(anomaly))
+            _impact_targets.push_back(target);
+        return true;
+    };
+
+    bool anomalies_created = true;
+    for (const auto& anomaly_definition : definition.anomalies)
+        std::visit([&](const auto& anomaly_config) {
+            using Config = std::decay_t<decltype(anomaly_config)>;
+            if constexpr (std::is_same_v<Config, game::anomaly::RadialFieldAnomalyConfig>)
+            {
+                anomalies_created &= register_anomaly(
+                    scene.create_and_add_object<game::anomaly::RadialFieldAnomaly>(anomaly_config));
+            }
+            else if constexpr (std::is_same_v<Config, game::anomaly::BlackHoleConfig>)
+            {
+                anomalies_created &= register_anomaly(
+                    scene.create_and_add_object<game::anomaly::BlackHoleAnomaly>(anomaly_config));
+            }
+            else if constexpr (std::is_same_v<Config, game::anomaly::WormholePairConfig>)
+            {
+                anomalies_created &= register_anomaly(
+                    scene.create_and_add_object<game::anomaly::WormholePortal>(
+                        game::anomaly::WormholePortalConfig{
+                            .center = anomaly_config.first_center,
+                            .destination_center = anomaly_config.second_center,
+                            .portal_radius = anomaly_config.portal_radius,
+                            .exit_offset = anomaly_config.exit_offset,
+                            .color = anomaly_config.first_color}));
+                anomalies_created &= register_anomaly(
+                    scene.create_and_add_object<game::anomaly::WormholePortal>(
+                        game::anomaly::WormholePortalConfig{
+                            .center = anomaly_config.second_center,
+                            .destination_center = anomaly_config.first_center,
+                            .portal_radius = anomaly_config.portal_radius,
+                            .exit_offset = anomaly_config.exit_offset,
+                            .color = anomaly_config.second_color}));
+            }
+        }, anomaly_definition);
 
     if (!_background || !_moon_cell || _ships.size() != definition.ships.size()
-        || _anomalies.size() != definition.anomalies.size())
+        || !anomalies_created)
     {
         clear();
         throw std::runtime_error("GameLevel failed to create its scene objects.");

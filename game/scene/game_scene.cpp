@@ -2,6 +2,7 @@
 
 #include "../level/game_level_catalog.h"
 #include "../gameplay/fleet/enemy_ship.h"
+#include "../gameplay/fleet/flagship_laser.h"
 #include "../gameplay/launcher/aim_guide.h"
 #include "../gameplay/launcher/moon_cell.h"
 #include "../gameplay/projectile/projectile.h"
@@ -25,6 +26,12 @@ GameScene::GameScene()
     _impact_hold_timer.set_wait_time(1.0);
     _impact_hold_timer.set_on_timeout([this] { finish_resolution(); });
     _impact_hold_timer.pause();
+    _flagship_weapon_timer.set_one_shot(true);
+    _flagship_weapon_timer.set_on_timeout([this] {
+        if (_round.is_flagship_warning()) begin_flagship_firing();
+        else if (_round.is_flagship_firing()) finish_flagship_firing();
+    });
+    _flagship_weapon_timer.pause();
 }
 
 void GameScene::on_enter(const elysia::scene::ScenePayload& payload)
@@ -52,6 +59,7 @@ void GameScene::on_update(double delta)
 
     const auto& definition = *_level.definition();
     const float frame_delta = static_cast<float>(std::max(0.0, delta));
+    _input.update_camera_pan(delta);
     if (std::fabs(_input.continuous_zoom()) > elysia::core::Vector2::k_epsilon)
     {
         const float requested = camera().zoom() * std::exp(_input.continuous_zoom() * frame_delta);
@@ -98,6 +106,7 @@ void GameScene::on_update(double delta)
 
     update_hud();
     _impact_hold_timer.update(delta);
+    _flagship_weapon_timer.update(delta);
     Scene::on_update(delta);
     _level.set_backdrop_visible_bounds(camera().view_rect());
 }
@@ -137,7 +146,7 @@ void GameScene::on_routed_input(const elysia::input::InputSnapshot& input)
     }
 
     if (_round.is_aiming() && commands.fire_pressed) launch_projectile();
-    else if (_round.is_victorious() && commands.restart_pressed) restart_level();
+    else if (_round.is_terminal() && commands.restart_pressed) restart_level();
 }
 
 void GameScene::on_fixed_update(std::uint64_t tick, double delta)
@@ -207,8 +216,9 @@ void GameScene::build_level()
         moon_cell->set_aim_direction(initial_aim);
         _camera_pan_offset = {};
         _power = definition.launch.initial_power;
-        _round.reset();
+        _round.configure(definition.mission.maximum_rounds);
         _impact_hold_timer.pause();
+        _flagship_weapon_timer.pause();
 
         auto* cameras = elysia::camera::CameraManager::instance();
         cameras->set_follow_strategy(
@@ -233,8 +243,10 @@ void GameScene::clear_level() noexcept
         if (!_active_projectile->is_destroyed()) _active_projectile->destroy();
     }
     if (_aim_guide && !_aim_guide->is_destroyed()) _aim_guide->destroy();
+    if (_flagship_laser && !_flagship_laser->is_destroyed()) _flagship_laser->destroy();
     _active_projectile = nullptr;
     _aim_guide = nullptr;
+    _flagship_laser = nullptr;
     _hud.clear();
     _level.clear();
     physics_world().reset();
@@ -242,6 +254,7 @@ void GameScene::clear_level() noexcept
     _resolution_focus.reset();
     _input.reset();
     _impact_hold_timer.pause();
+    _flagship_weapon_timer.pause();
     _round.reset();
     auto* cameras = elysia::camera::CameraManager::instance();
     cameras->set_world_bounds(render_camera_slot(), std::nullopt);
@@ -256,12 +269,54 @@ void GameScene::restart_level()
 
 void GameScene::finish_resolution()
 {
-    if (!_round.finish_resolution()) return;
+    const auto action = _round.finish_resolution();
+    if (action == game::session::ProjectileCompletionAction::None) return;
     _resolution_focus.reset();
+    handle_round_completion(action);
+}
+
+void GameScene::handle_round_completion(game::session::ProjectileCompletionAction action)
+{
+    if (action == game::session::ProjectileCompletionAction::BeginFlagshipWarning)
+    {
+        begin_flagship_warning();
+        return;
+    }
+    if (action != game::session::ProjectileCompletionAction::ReturnToAiming) return;
     const auto* definition = _level.definition();
     const float target_zoom = definition ? definition->camera.initial_zoom : 0.6f;
     elysia::camera::CameraManager::instance()->request_zoom_to(
         render_camera_slot(), target_zoom, 0.35);
+}
+
+void GameScene::begin_flagship_warning()
+{
+    auto* flagship = _level.fleet().flagship();
+    auto* moon_cell = _level.moon_cell();
+    const auto* definition = _level.definition();
+    if (!flagship || !moon_cell || !definition) return;
+    if (_flagship_laser && !_flagship_laser->is_destroyed()) _flagship_laser->destroy();
+    _flagship_laser = create_and_add_object<game::fleet::FlagshipLaser>(
+        flagship->center(), moon_cell->camera_anchor());
+    _flagship_weapon_timer.set_wait_time(definition->mission.flagship_warning_seconds);
+    _flagship_weapon_timer.restart();
+}
+
+void GameScene::begin_flagship_firing()
+{
+    const auto* definition = _level.definition();
+    if (!_round.begin_flagship_firing() || !definition) return;
+    if (_flagship_laser)
+        _flagship_laser->set_phase(game::fleet::FlagshipLaserPhase::Firing);
+    _flagship_weapon_timer.set_wait_time(definition->mission.flagship_firing_seconds);
+    _flagship_weapon_timer.restart();
+}
+
+void GameScene::finish_flagship_firing()
+{
+    if (!_round.finish_flagship_firing()) return;
+    _flagship_weapon_timer.pause();
+    update_hud();
 }
 
 void GameScene::update_hud()
@@ -270,6 +325,9 @@ void GameScene::update_hud()
     const auto* definition = _level.definition();
     _hud.update({
         .victory = _round.is_victorious(),
+        .defeat = _round.is_defeated(),
+        .flagship_warning = _round.is_flagship_warning(),
+        .flagship_firing = _round.is_flagship_firing(),
         .projectile_in_flight = _round.is_in_flight(),
         .resolving = _round.is_resolving(),
         .input_device = _input.last_input_device(),
@@ -279,7 +337,9 @@ void GameScene::update_hud()
         .flagship_hit_points = flagship ? flagship->hit_points() : 0,
         .flagship_maximum_hit_points = flagship ? flagship->maximum_hit_points() : 0,
         .flagship_shield_active = _level.fleet().flagship_shield_active(),
-        .living_escorts = _level.fleet().living_escort_count()});
+        .living_escorts = _level.fleet().living_escort_count(),
+        .completed_rounds = _round.completed_rounds(),
+        .maximum_rounds = _round.maximum_rounds()});
 }
 
 void GameScene::launch_projectile()
@@ -331,10 +391,13 @@ void GameScene::on_projectile_finished(game::projectile::ProjectileEndReason rea
     {
         _resolution_focus.reset();
         _impact_hold_timer.pause();
-        const auto* definition = _level.definition();
-        const float target_zoom = definition ? definition->camera.initial_zoom : 0.6f;
-        elysia::camera::CameraManager::instance()->request_zoom_to(
-            render_camera_slot(), target_zoom, 0.35);
+        handle_round_completion(action);
+    }
+    else if (action == game::session::ProjectileCompletionAction::BeginFlagshipWarning)
+    {
+        _resolution_focus.reset();
+        _impact_hold_timer.pause();
+        handle_round_completion(action);
     }
 }
 }

@@ -23,6 +23,7 @@ constexpr elysia::core::Color kHudBorder{94, 172, 230, 220};
 constexpr elysia::core::Color kPowerFill{255, 190, 76, 255};
 constexpr elysia::core::Color kHealthFill{226, 72, 88, 255};
 constexpr elysia::core::Color kShieldFill{84, 190, 255, 255};
+constexpr elysia::core::Color kChargeFill{255, 76, 104, 255};
 
 elysia::ui::UiLayoutChildOptions anchored(
     elysia::ui::UiLayoutAnchor anchor,
@@ -66,6 +67,9 @@ float normalized(float value, float minimum, float maximum) noexcept
 std::string status_text(const GameHudModel& model)
 {
     if (model.victory) return "VICTORY";
+    if (model.defeat) return "MOON CELL DESTROYED";
+    if (model.flagship_firing) return "EXTERMINATION BEAM FIRED";
+    if (model.flagship_warning) return "EXTERMINATION WEAPON READY";
     if (model.resolving) return "IMPACT CONFIRMED";
     if (model.projectile_in_flight) return "PROJECTILE IN FLIGHT";
     return "AIMING";
@@ -74,7 +78,7 @@ std::string status_text(const GameHudModel& model)
 std::string hint_text(const GameHudModel& model)
 {
     const bool gamepad = model.input_device == elysia::input::InputDevice::Gamepad;
-    if (model.victory)
+    if (model.victory || model.defeat)
         return gamepad ? "Y: restart mission" : "R: restart mission";
     return gamepad
         ? "Right stick: aim  |  Triggers: power  |  A: fire  |  Left stick: pan"
@@ -134,6 +138,30 @@ void GameHud::build(elysia::scene::Scene& scene, elysia::core::Vector2 viewport_
             elysia::ui::UiLayoutAnchor::TopRight, {320.0f, 38.0f},
             {.top = 102.0f, .right = 24.0f})));
 
+    auto charge = std::make_unique<elysia::ui::UiBar>(
+        elysia::core::Vector2{}, elysia::core::Vector2{320.0f, 18.0f});
+    charge->set_range(0.0f, 1.0f);
+    charge->set_padding(3);
+    charge->set_visual_role(elysia::ui::UiBarVisualRole::Progress);
+    charge->set_style_overrides({
+        .corner_radius = 7.0f,
+        .background = kHudSurface,
+        .fill = kChargeFill,
+        .border = kHudBorder,
+        .draw_border = true});
+    _charge_bar = static_cast<elysia::ui::UiBar*>(_root->add_child(
+        std::move(charge), anchored(
+            elysia::ui::UiLayoutAnchor::TopRight, {320.0f, 18.0f},
+            {.top = 146.0f, .right = 24.0f})));
+
+    auto charge_label = make_hud_label(
+        {320.0f, 36.0f}, elysia::typography::UiTypographyRole::LabelMuted,
+        elysia::ui::TextHorizontalAlign::Center);
+    _charge_label = static_cast<elysia::ui::UiLabel*>(_root->add_child(
+        std::move(charge_label), anchored(
+            elysia::ui::UiLayoutAnchor::TopRight, {320.0f, 36.0f},
+            {.top = 170.0f, .right = 24.0f})));
+
     auto power = std::make_unique<elysia::ui::UiBar>(
         elysia::core::Vector2{}, elysia::core::Vector2{34.0f, 250.0f});
     power->set_fill_direction(elysia::ui::BarFillDirection::BottomToTop);
@@ -168,6 +196,7 @@ void GameHud::build(elysia::scene::Scene& scene, elysia::core::Vector2 viewport_
             {.bottom = 18.0f})));
 
     if (!_status_label || !_objective_label || !_flagship_health_bar || !_fleet_label
+        || !_charge_bar || !_charge_label
         || !_power_bar || !_power_label || !_hint_label)
     {
         clear();
@@ -178,6 +207,15 @@ void GameHud::build(elysia::scene::Scene& scene, elysia::core::Vector2 viewport_
 void GameHud::update(const GameHudModel& model)
 {
     if (!is_built()) return;
+
+    const bool warning_overlay = model.flagship_warning || model.flagship_firing || model.defeat;
+    _root->set_style_overrides({
+        .draw_background = warning_overlay,
+        .draw_border = false,
+        .background = warning_overlay
+            ? elysia::core::Color{150, 8, 24,
+                static_cast<std::uint8_t>(model.flagship_firing ? 74 : 42)}
+            : elysia::core::Color{}});
 
     _power_bar->set_ratio(normalized(model.power, model.minimum_power, model.maximum_power));
     _power_label->set_text_content(elysia::ui::ui_raw_text(
@@ -200,6 +238,13 @@ void GameHud::update(const GameHudModel& model)
     _fleet_label->set_text_content(elysia::ui::ui_raw_text(
         std::string(model.flagship_shield_active ? "SHIELD ACTIVE" : "SHIELD DOWN")
         + "  |  ESCORTS " + std::to_string(std::max(0, model.living_escorts))));
+    const int maximum_rounds = std::max(1, model.maximum_rounds);
+    const int completed_rounds = std::clamp(model.completed_rounds, 0, maximum_rounds);
+    _charge_bar->set_ratio(static_cast<float>(completed_rounds)
+                           / static_cast<float>(maximum_rounds));
+    _charge_label->set_text_content(elysia::ui::ui_raw_text(
+        "FLAGSHIP CHARGING  |  SHOTS LEFT "
+        + std::to_string(maximum_rounds - completed_rounds)));
     _status_label->set_text_content(elysia::ui::ui_raw_text(status_text(model)));
     _hint_label->set_text_content(elysia::ui::ui_raw_text(hint_text(model)));
 }
@@ -210,10 +255,12 @@ void GameHud::clear() noexcept
     _root = nullptr;
     _power_bar = nullptr;
     _flagship_health_bar = nullptr;
+    _charge_bar = nullptr;
     _power_label = nullptr;
     _status_label = nullptr;
     _objective_label = nullptr;
     _fleet_label = nullptr;
+    _charge_label = nullptr;
     _hint_label = nullptr;
 }
 }

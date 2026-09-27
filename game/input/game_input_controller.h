@@ -23,6 +23,7 @@ public:
 
     [[nodiscard]] GameInputCommands route(const elysia::input::InputSnapshot& input);
     void reset(elysia::core::Vector2 initial_aim = {1.0f, 0.0f}) noexcept;
+    void update_camera_pan(double delta) noexcept;
     void update_aim(double delta, elysia::core::Vector2 origin,
                     std::optional<elysia::core::Vector2> mouse_world) noexcept;
 
@@ -50,8 +51,10 @@ private:
     float _power_adjustment = 0.0f;
     float _continuous_zoom = 0.0f;
     elysia::core::Vector2 _camera_pan{};
+    elysia::core::Vector2 _camera_pan_target{};
     elysia::core::Vector2 _aim_direction{1.0f, 0.0f};
     elysia::core::Vector2 _gamepad_aim_target{1.0f, 0.0f};
+    float _gamepad_aim_strength = 0.0f;
     elysia::core::Vector2 _mouse_screen{};
 };
 }

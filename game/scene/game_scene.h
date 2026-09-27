@@ -13,6 +13,7 @@
 
 namespace game::launcher { class AimGuide; }
 namespace game::projectile { class Projectile; }
+namespace game::fleet { class FlagshipLaser; }
 
 namespace game::scene
 {
@@ -38,6 +39,10 @@ private:
     void clear_level() noexcept;
     void restart_level();
     void finish_resolution();
+    void handle_round_completion(game::session::ProjectileCompletionAction action);
+    void begin_flagship_warning();
+    void begin_flagship_firing();
+    void finish_flagship_firing();
     void update_hud();
     void launch_projectile();
     [[nodiscard]] elysia::core::Vector2 aiming_camera_target() const noexcept;
@@ -58,6 +63,8 @@ private:
 
     game::launcher::AimGuide* _aim_guide = nullptr;
     game::projectile::Projectile* _active_projectile = nullptr;
+    game::fleet::FlagshipLaser* _flagship_laser = nullptr;
     elysia::tools::Timer _impact_hold_timer;
+    elysia::tools::Timer _flagship_weapon_timer;
 };
 }

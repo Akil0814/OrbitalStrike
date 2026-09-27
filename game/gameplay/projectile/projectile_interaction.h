@@ -5,6 +5,8 @@
 #include "engine/core/geometry/vector2.h"
 #include "engine/physics/collision/collider.h"
 
+#include <optional>
+
 namespace game::projectile
 {
 enum class RadialForceMode : unsigned char
@@ -18,7 +20,8 @@ enum class ProjectileDisposition : unsigned char
 {
     Destroy,
     Continue,
-    Reflect
+    Reflect,
+    Teleport
 };
 
 enum class HitReactionMode : unsigned char
@@ -55,12 +58,14 @@ struct ProjectileImpactResolution
 {
     ProjectileDisposition disposition = ProjectileDisposition::Destroy;
     float restitution = 1.0f;
+    std::optional<elysia::core::Vector2> teleport_position;
     game::combat::DamageResult damage{};
 };
 
 struct ProjectileMotionResolution
 {
     elysia::core::Vector2 velocity{};
+    std::optional<elysia::core::Vector2> teleport_position;
     bool should_finish = false;
 };
 

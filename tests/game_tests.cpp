@@ -1,4 +1,6 @@
 #include "game/gameplay/fleet/enemy_fleet.h"
+#include "game/gameplay/anomaly/black_hole_anomaly.h"
+#include "game/gameplay/anomaly/wormhole_portal.h"
 #include "game/gameplay/projectile/projectile.h"
 #include "game/gameplay/projectile/projectile_interaction.h"
 #include "game/gameplay/session/round_controller.h"
@@ -102,6 +104,16 @@ void test_projectile_motion()
         ProjectileImpactResolution{.disposition = ProjectileDisposition::Destroy},
         {4.0f, -2.0f}, {0.0f, 1.0f});
     expect(destroyed.should_finish, "destroy marks the projectile as finished");
+
+    const auto teleported = game::projectile::resolve_projectile_motion(
+        ProjectileImpactResolution{
+            .disposition = ProjectileDisposition::Teleport,
+            .teleport_position = elysia::core::Vector2{120.0f, 80.0f}},
+        {4.0f, -2.0f}, {});
+    expect(!teleported.should_finish
+               && teleported.velocity == elysia::core::Vector2{4.0f, -2.0f}
+               && teleported.teleport_position == elysia::core::Vector2{120.0f, 80.0f},
+           "teleport preserves velocity and forwards its destination");
 }
 
 void test_round_controller()
@@ -111,6 +123,7 @@ void test_round_controller()
     using game::session::RoundController;
 
     RoundController round;
+    round.configure(3);
     expect(round.is_aiming(), "a round starts in aiming state");
     expect(round.begin_projectile_flight() && round.is_in_flight(),
            "launch transitions to flight");
@@ -118,20 +131,26 @@ void test_round_controller()
                == ProjectileCompletionAction::BeginResolution
                && round.is_resolving(),
            "a hit transitions to resolution");
-    expect(round.finish_resolution() && round.is_aiming(),
+    expect(round.finish_resolution() == ProjectileCompletionAction::ReturnToAiming
+               && round.is_aiming() && round.completed_rounds() == 1,
            "resolution returns to aiming");
 
     expect(round.begin_projectile_flight(), "a new shot can begin after resolution");
     expect(round.finish_projectile(ProjectileEndReason::Expired)
                == ProjectileCompletionAction::ReturnToAiming
-               && round.is_aiming(),
+               && round.is_aiming() && round.completed_rounds() == 2,
            "expiration returns directly to aiming");
     expect(round.begin_projectile_flight(), "a shot can begin after expiration");
     expect(round.finish_projectile(ProjectileEndReason::OutOfBounds)
-               == ProjectileCompletionAction::ReturnToAiming
-               && round.is_aiming(),
-           "out-of-bounds returns directly to aiming");
+               == ProjectileCompletionAction::BeginFlagshipWarning
+               && round.is_flagship_warning() && round.completed_rounds() == 3,
+           "the final out-of-bounds shot starts the flagship warning");
+    expect(round.begin_flagship_firing() && round.is_flagship_firing(),
+           "warning advances to flagship firing");
+    expect(round.finish_flagship_firing() && round.is_defeated(),
+           "flagship firing advances to defeat");
 
+    round.reset();
     expect(round.begin_projectile_flight(), "a victory shot can begin");
     round.record_impact(true);
     expect(round.is_victorious(), "defeating the objective transitions to victory");
@@ -142,6 +161,69 @@ void test_round_controller()
     round.reset();
     expect(round.is_aiming(), "reset returns victory to aiming");
 }
+
+void test_anomaly_impacts()
+{
+    game::anomaly::BlackHoleAnomaly black_hole({
+        .center = {10.0f, 20.0f}, .event_horizon_radius = 70.0f});
+    const auto consumed = black_hole.resolve_projectile_impact({});
+    expect(consumed.disposition == game::projectile::ProjectileDisposition::Destroy,
+           "a black-hole event horizon destroys projectiles");
+
+    game::anomaly::WormholePortal portal({
+        .center = {10.0f, 20.0f},
+        .destination_center = {200.0f, 300.0f},
+        .portal_radius = 75.0f,
+        .exit_offset = 96.0f});
+    const auto transfer = portal.resolve_projectile_impact({
+        .projectile_velocity = {0.0f, -500.0f}});
+    expect(transfer.disposition == game::projectile::ProjectileDisposition::Teleport,
+           "wormholes request projectile teleportation");
+    expect(transfer.teleport_position.has_value(), "wormholes provide an exit position");
+    if (transfer.teleport_position)
+    {
+        expect_near(transfer.teleport_position->x, 200.0f,
+                    "wormhole exit keeps the perpendicular coordinate");
+        expect_near(transfer.teleport_position->y, 204.0f,
+                    "wormhole exit offsets along projectile travel direction");
+    }
+}
+
+void test_tenth_shot_rules()
+{
+    using game::projectile::ProjectileEndReason;
+    using game::session::ProjectileCompletionAction;
+
+    game::session::RoundController exhausted;
+    exhausted.configure(10);
+    for (int shot = 1; shot < 10; ++shot)
+    {
+        expect(exhausted.begin_projectile_flight(), "each pre-limit shot can launch");
+        expect(exhausted.finish_projectile(ProjectileEndReason::Expired)
+                   == ProjectileCompletionAction::ReturnToAiming,
+               "the first nine completed shots return to aiming");
+    }
+    expect(exhausted.remaining_rounds() == 1, "one full shot remains before the limit");
+    expect(exhausted.begin_projectile_flight(), "the tenth shot can launch normally");
+    expect(exhausted.finish_projectile(ProjectileEndReason::OutOfBounds)
+               == ProjectileCompletionAction::BeginFlagshipWarning
+               && exhausted.is_flagship_warning(),
+           "a non-winning tenth shot starts the flagship weapon");
+
+    game::session::RoundController victorious;
+    victorious.configure(10);
+    for (int shot = 1; shot < 10; ++shot)
+    {
+        (void)victorious.begin_projectile_flight();
+        (void)victorious.finish_projectile(ProjectileEndReason::Expired);
+    }
+    expect(victorious.begin_projectile_flight(), "a winning tenth shot can launch");
+    victorious.record_impact(true);
+    expect(victorious.finish_projectile(ProjectileEndReason::Hit)
+               == ProjectileCompletionAction::None
+               && victorious.is_victorious(),
+           "tenth-shot victory takes precedence over flagship firing");
+}
 }
 
 int main()
@@ -150,6 +232,8 @@ int main()
     test_fleet_shield();
     test_projectile_motion();
     test_round_controller();
+    test_anomaly_impacts();
+    test_tenth_shot_rules();
     if (failures == 0)
     {
         std::cout << "All game tests passed.\n";
