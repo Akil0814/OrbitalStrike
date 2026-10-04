@@ -736,7 +736,12 @@ bool UiWindow::on_ui_input_event(const UiInputEvent& event)
         else if (event.type == UiInputEventType::PointerPressed
             && event.device == elysia::input::InputDevice::Mouse
             && event.control == elysia::input::RawInputControl::MouseLeft)
+        {
             (void)set_focused_scope_internal(pointer_scope);
+            // Activate the new scope before its controls process the press.
+            // Otherwise its focus synchronization clears the button's pushed state.
+            apply_scope_focus();
+        }
 
         if (event.type == UiInputEventType::ActionPressed && is_navigation_action(event.action))
         {
@@ -1253,8 +1258,8 @@ void UiWindow::apply_overlay_placement(OverlayEntry& entry) noexcept
     const elysia::core::Rect bounds = content_rect();
     const elysia::core::Vector2 fallback = layout::clamp_size(entry.options.fallback_size);
     const elysia::core::Vector2 current = layout::clamp_size(entry.element->size());
-    const float width = current.x > elysia::core::Vector2::k_epsilon ? current.x : fallback.x;
-    const float height = current.y > elysia::core::Vector2::k_epsilon ? current.y : fallback.y;
+    const float width = current.x > elysia::core::Vector2::kEpsilon ? current.x : fallback.x;
+    const float height = current.y > elysia::core::Vector2::kEpsilon ? current.y : fallback.y;
 
     switch (entry.options.placement)
     {

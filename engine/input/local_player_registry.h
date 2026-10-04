@@ -6,6 +6,8 @@
 #include <expected>
 #include <functional>
 #include <utility>
+#include <limits>
+namespace elysia::gameplay { class ControllerManager; }
 namespace elysia::input
 {
 struct KeyboardPartition
@@ -34,22 +36,65 @@ enum class InputBindingError
     InvalidSource,
     Overlap,
     InUse,
-    InvalidMap
+    InvalidMap,
+    PartitionIdsExhausted
 };
 class LocalPlayerRegistry
 {
   public:
     LocalPlayerRegistry()
     {
-        reset();
+        build_defaults();
     }
-    void reset()
+    void clear_for_shutdown() noexcept
     {
         _players.clear();
-        _configuration = {};
+        _configuration.partitions.clear();
+        _configuration.bindings.clear();
         _versions.clear();
         _required_keys.clear();
         _next = 1;
+        _next_partition = 1;
+        _revision = 0;
+    }
+    void swap_state(LocalPlayerRegistry& other) noexcept
+    {
+        using std::swap;
+        swap(_players, other._players);
+        swap(_configuration, other._configuration);
+        swap(_versions, other._versions);
+        swap(_required_keys, other._required_keys);
+        swap(_next, other._next);
+        swap(_next_partition, other._next_partition);
+        swap(_revision, other._revision);
+    }
+    void reset_defaults()
+    {
+        LocalPlayerRegistry prepared(EmptyTag{});
+        prepared.build_defaults();
+        swap_state(prepared);
+    }
+    LocalPlayerId create_player()
+    {
+        LocalPlayerId id{_next};
+        auto players = _players;
+        auto bindings = _configuration.bindings;
+        auto versions = _versions;
+        players.push_back(id);
+        bindings[id] = {};
+        ++versions[id];
+        _players.swap(players);
+        _configuration.bindings.swap(bindings);
+        _versions.swap(versions);
+        ++_next;
+        ++_revision;
+        return id;
+    }
+  private:
+    struct EmptyTag {};
+    explicit LocalPlayerRegistry(EmptyTag) noexcept {}
+    void build_defaults()
+    {
         auto player = create_player();
         std::set<RawInputControl> keys;
         for (int i = 1; i < int(RawInputControl::Count); ++i)
@@ -59,15 +104,7 @@ class LocalPlayerRegistry
         _configuration.bindings[player] = {*partition, true, {}};
         ++_versions[player];
     }
-    LocalPlayerId create_player()
-    {
-        LocalPlayerId id{_next++};
-        _players.push_back(id);
-        _configuration.bindings[id] = {};
-        ++_versions[id];
-        ++_revision;
-        return id;
-    }
+  public:
     bool contains(LocalPlayerId id) const
     {
         return std::ranges::find(_players, id) != _players.end();
@@ -91,6 +128,8 @@ class LocalPlayerRegistry
         const auto &allowed = _configuration.partitions.at(it->second.keyboard).keys;
         return std::ranges::all_of(keys, [&](auto key) { return allowed.contains(key); });
     }
+  private:
+    friend class elysia::gameplay::ControllerManager;
     void set_keyboard_requirement(LocalPlayerId player, std::set<RawInputControl> keys)
     {
         _required_keys[player] = std::move(keys);
@@ -99,6 +138,7 @@ class LocalPlayerRegistry
     {
         _required_keys.erase(player);
     }
+  public:
     const PlayerInputConfiguration &configuration() const
     {
         return _configuration;
@@ -139,6 +179,7 @@ class LocalPlayerRegistry
                 (!binding.gamepad.is_gamepad() || !valid_source(binding.gamepad) || !pads.insert(binding.gamepad).second))
                 return std::unexpected(InputBindingError::InvalidSource);
         }
+        auto versions = _versions;
         for (auto player : _players)
         {
             auto &binding = next.bindings[player];
@@ -148,21 +189,32 @@ class LocalPlayerRegistry
                 changed = changed ||
                           _configuration.partitions.at(old.keyboard) != next.partitions.at(binding.keyboard);
             if (changed)
-                ++_versions[player];
+                ++versions[player];
         }
         _configuration = std::move(next);
+        _versions.swap(versions);
         ++_revision;
         return {};
     }
     std::expected<KeyboardPartitionId, InputBindingError> create_partition(std::string name,
                                                                            std::set<RawInputControl> keys)
     {
-        KeyboardPartitionId id{_next_partition++};
+        const std::uint64_t maximum_id = std::numeric_limits<std::uint64_t>::max();
+        if (_next_partition == 0)
+            return std::unexpected(InputBindingError::PartitionIdsExhausted);
+        KeyboardPartitionId id{_next_partition};
         auto next = _configuration;
-        next.partitions[id] = {id, std::move(name), std::move(keys)};
+        while (next.partitions.contains(id))
+        {
+            if (id.value == maximum_id)
+                return std::unexpected(InputBindingError::PartitionIdsExhausted);
+            ++id.value;
+        }
+        next.partitions.emplace(id, KeyboardPartition{id, std::move(name), std::move(keys)});
         auto result = apply_configuration(std::move(next));
         if (!result)
             return std::unexpected(result.error());
+        _next_partition = id.value == maximum_id ? 0 : id.value + 1;
         return id;
     }
     std::expected<void, InputBindingError> update_partition(KeyboardPartition partition)
