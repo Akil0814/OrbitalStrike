@@ -15,11 +15,6 @@
 namespace game::scene
 {
 
-    void LevelSelectScene::on_update(double delta)
-    {
-        elysia::scene::Scene::on_update(delta);
-    }
-
     void LevelSelectScene::on_enter(const elysia::scene::ScenePayload& payload)
     {
         (void)payload;
@@ -39,7 +34,7 @@ namespace game::scene
     {
     }
 
-    void LevelSelectScene::reset()
+    void LevelSelectScene::on_reset()
     {
         _has_entered = false;
     }

@@ -1,5 +1,7 @@
 # Elysia 引擎相机槽平滑过渡需求
 
+实现状态：新版引擎已通过 `SceneCameraRuntime` 提供 `cut_to`、`blend_to`、`move_to` 与完成回调。本文保留原始接口设计提案；当前游戏流程以 [gameplay.md](gameplay.md) 为准：发射与弹丸失效时立即切镜，失败演出使用平滑切镜和拉远。
+
 ## 1. 需求背景
 
 游戏需要在玩家控制镜头与演出镜头之间切换。例如：玩家使用 Main 相机观察和瞄准；发射后切换到 Cinematic 相机跟随弹丸；命中后由 Cinematic 完成停留和回镜；演出结束后恢复 Main 原有的中心与缩放。

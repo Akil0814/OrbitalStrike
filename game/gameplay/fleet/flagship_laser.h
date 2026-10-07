@@ -16,6 +16,7 @@ public:
     void update(double delta_seconds) override;
     void submit_render_commands(std::vector<elysia::core::RenderCommand>& commands) const override;
     void set_phase(FlagshipLaserPhase phase) noexcept;
+    [[nodiscard]] FlagshipLaserPhase phase() const noexcept { return _phase; }
 
 private:
     elysia::core::Vector2 _origin{};

@@ -18,11 +18,6 @@
 
 namespace game::scene
 {
-    void MainMenuScene::on_update(double delta)
-    {
-        elysia::scene::Scene::on_update(delta);
-    }
-
     void MainMenuScene::on_enter(const elysia::scene::ScenePayload& payload)
     {
         (void)payload;
@@ -43,7 +38,7 @@ namespace game::scene
         reset_exit_overlay();
     }
 
-    void MainMenuScene::reset()
+    void MainMenuScene::on_reset()
     {
         _has_entered = false;
         reset_exit_overlay();

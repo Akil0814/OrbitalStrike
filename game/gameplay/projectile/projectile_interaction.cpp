@@ -15,7 +15,7 @@ elysia::core::Vector2 compute_radial_force(
 
     const auto offset = projectile.position - source_position;
     const float distance_squared = offset.length_squared();
-    if (distance_squared <= elysia::core::Vector2::k_epsilon
+    if (distance_squared <= elysia::core::Vector2::kEpsilon
         || distance_squared > config.maximum_range * config.maximum_range)
         return {};
 

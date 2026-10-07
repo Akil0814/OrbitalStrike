@@ -80,6 +80,10 @@ std::string hint_text(const GameHudModel& model)
     const bool gamepad = model.input_device == elysia::input::InputDevice::Gamepad;
     if (model.victory || model.defeat)
         return gamepad ? "Y: restart mission" : "R: restart mission";
+    if (model.flagship_warning) return "Flagship charging  |  Cinematic sequence";
+    if (model.flagship_firing) return "Extermination beam firing";
+    if (model.resolving) return "Resolving impact  |  Next shot available shortly";
+    if (model.projectile_in_flight) return "Tracking projectile";
     return gamepad
         ? "Right stick: aim  |  Triggers: power  |  A: fire  |  Left stick: pan"
         : "Mouse: aim / fire  |  Q / E: power  |  WASD: pan  |  Wheel: zoom";

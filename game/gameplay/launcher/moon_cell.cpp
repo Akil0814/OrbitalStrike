@@ -62,12 +62,12 @@ void MoonCell::set_aim_direction(elysia::core::Vector2 direction) noexcept
     direction = direction.normalized();
     if (direction.is_zero()) return;
 
-    if (direction.x > elysia::core::Vector2::k_epsilon) _last_horizontal_sign = 1.0f;
-    else if (direction.x < -elysia::core::Vector2::k_epsilon) _last_horizontal_sign = -1.0f;
+    if (direction.x > elysia::core::Vector2::kEpsilon) _last_horizontal_sign = 1.0f;
+    else if (direction.x < -elysia::core::Vector2::kEpsilon) _last_horizontal_sign = -1.0f;
 
     if (direction.y > 0.0f)
     {
-        const float horizontal = std::fabs(direction.x) > elysia::core::Vector2::k_epsilon
+        const float horizontal = std::fabs(direction.x) > elysia::core::Vector2::kEpsilon
             ? (direction.x > 0.0f ? 1.0f : -1.0f)
             : _last_horizontal_sign;
         direction = {horizontal, 0.0f};

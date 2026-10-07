@@ -58,9 +58,10 @@ void Projectile::submit_render_commands(
     elysia::core::RenderCommand command;
     command.type = elysia::core::RenderCommandType::Texture;
     command.texture = _config.texture;
+    const auto render_center = render_rect().center();
     command.command_rect = {
-        center().x - _config.definition.visual_size.x * _config.definition.visual_anchor.x,
-        center().y - _config.definition.visual_size.y * _config.definition.visual_anchor.y,
+        render_center.x - _config.definition.visual_size.x * _config.definition.visual_anchor.x,
+        render_center.y - _config.definition.visual_size.y * _config.definition.visual_anchor.y,
         _config.definition.visual_size.x,
         _config.definition.visual_size.y};
     command.rotation_degrees = std::atan2(_visual_direction.y, _visual_direction.x)

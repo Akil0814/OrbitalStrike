@@ -27,6 +27,9 @@ struct GameCameraConfig
     float maximum_zoom = 1.6f;
     float pan_speed = 800.0f;
     float cannon_screen_offset_ratio = 0.3f;
+    double flagship_blend_seconds = 0.65;
+    float flagship_close_zoom = 1.0f;
+    float flagship_framing_padding = 800.0f;
 };
 
 struct GameLaunchConfig
