@@ -1,4 +1,5 @@
 #include "game_scene.h"
+#include "scene_keys.h"
 
 #include "../level/game_level_catalog.h"
 #include "../gameplay/fleet/enemy_ship.h"
@@ -9,6 +10,8 @@
 
 #include "engine/camera/follow_strategy.h"
 #include "engine/tools/debug_draw.h"
+#include "engine/ui/composites/ui_confirmation_dialog.h"
+#include "engine/ui/window/ui_window.h"
 
 #include <algorithm>
 #include <cmath>
@@ -44,6 +47,7 @@ void GameScene::on_enter(const elysia::scene::ScenePayload& payload)
     if (_level.is_built()) clear_level();
     _level_id = game_payload->level_id;
     build_level();
+    resume();
 
     ELYSIA_DEBUG_DRAW->set_enabled(true);
     ELYSIA_DEBUG_DRAW->set_enabled_categories(elysia::tools::DebugDrawCategory::All);
@@ -54,6 +58,7 @@ void GameScene::on_reset() { clear_level(); }
 
 void GameScene::on_before_update(double delta)
 {
+    resume_after_return_menu_dialog();
     if (!_level.is_built() || is_paused()) return;
 
     const auto& definition = *_level.definition();
@@ -117,6 +122,8 @@ void GameScene::on_after_update(double delta)
 
 void GameScene::on_routed_input(const elysia::input::InputSnapshot& input)
 {
+    resume_after_return_menu_dialog();
+    if (is_paused()) return;
     const auto commands = _input.route(input);
     if (commands.focus_lost)
     {
@@ -220,16 +227,20 @@ elysia::core::Vector2 GameScene::aiming_camera_target(float zoom) const noexcept
 
 void GameScene::build_level()
 {
-    if (!_level_id) throw std::logic_error("Cannot build a game level without a selected level id.");
+    if (!_level_id) 
+        throw std::logic_error("Cannot build a game level without a selected level id.");
+
     const auto& definition = game::level::GameLevelCatalog::get(*_level_id);
     try
     {
         _level.build(*this, definition);
         _aim_guide = create_and_add_object<game::launcher::AimGuide>();
-        if (!_aim_guide) throw std::runtime_error("GameScene failed to create AimGuide.");
+        if (!_aim_guide)
+            throw std::runtime_error("GameScene failed to create AimGuide.");
         _hud.build(*this, {
             static_cast<float>(runtime_context().logical_width()),
             static_cast<float>(runtime_context().logical_height())});
+        build_return_menu_dialog();
 
         auto* flagship = _level.fleet().flagship();
         auto* moon_cell = _level.moon_cell();
@@ -266,6 +277,11 @@ void GameScene::build_level()
 
 void GameScene::clear_level() noexcept
 {
+    if (_return_menu_window && !_return_menu_window->is_destroyed())
+        _return_menu_window->destroy();
+    _return_menu_window = nullptr;
+    _return_menu_dialog = nullptr;
+    _return_menu_paused_scene = false;
     if (_active_projectile)
     {
         _active_projectile->detach_collision_listener();
@@ -293,6 +309,53 @@ void GameScene::restart_level()
 {
     clear_level();
     build_level();
+}
+
+void GameScene::build_return_menu_dialog()
+{
+    _return_menu_window = create_and_add_object<elysia::ui::UiWindow>(
+        elysia::core::Rect{0.0f, 0.0f,
+            static_cast<float>(runtime_context().logical_width()),
+            static_cast<float>(runtime_context().logical_height())}, 200);
+    if (!_return_menu_window) throw std::runtime_error("Cannot create return-menu window.");
+    _return_menu_window->set_style_overrides({.draw_background = false, .draw_border = false});
+    _return_menu_dialog = _return_menu_window->create_child<elysia::ui::UiConfirmationDialog>(
+        elysia::core::Rect{0.0f, 0.0f, 480.0f, 260.0f}, 10);
+    if (!_return_menu_dialog) throw std::runtime_error("Cannot create return-menu dialog.");
+    _return_menu_dialog->set_config({
+        .title = elysia::ui::ui_text_key("game_scene.return_menu.title"),
+        .message = elysia::ui::ui_text_key("game_scene.return_menu.message"),
+        .confirm = elysia::ui::ui_text_key("game_scene.return_menu.confirm"),
+        .cancel = elysia::ui::ui_text_key("common.cancel"),
+        .close = elysia::ui::ui_text_key("common.close")});
+    _return_menu_dialog->set_on_confirm([this] {
+        // Keep gameplay paused until the pending scene switch retires this level.
+        _return_menu_paused_scene = false;
+        request_scene_switch(game::scene_keys::MainMenu);
+    });
+    if (!_return_menu_dialog->register_with_window(*_return_menu_window))
+        throw std::runtime_error("Cannot register return-menu dialog.");
+    _return_menu_window->set_on_cancel([this] { open_return_menu_dialog(); });
+}
+
+void GameScene::open_return_menu_dialog()
+{
+    if (!_level.is_built() || !_return_menu_window || !_return_menu_dialog
+        || _return_menu_window->is_overlay_open(*_return_menu_dialog)) return;
+    _return_menu_paused_scene = !is_paused();
+    if (auto* moon_cell = _level.moon_cell()) _input.reset(moon_cell->aim_direction());
+    pause();
+    _return_menu_dialog->open();
+}
+
+void GameScene::resume_after_return_menu_dialog()
+{
+    if (_return_menu_paused_scene && _return_menu_window && _return_menu_dialog
+        && !_return_menu_window->is_overlay_open(*_return_menu_dialog))
+    {
+        _return_menu_paused_scene = false;
+        resume();
+    }
 }
 
 void GameScene::finish_resolution()

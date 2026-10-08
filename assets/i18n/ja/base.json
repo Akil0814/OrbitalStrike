@@ -7,6 +7,13 @@
     "close": "閉じる",
     "coming_soon": "近日公開"
   },
+  "game_scene": {
+    "return_menu": {
+      "title": "メインメニューに戻る",
+      "message": "このステージを終了してメインメニューに戻りますか？今回の進行状況は保存されません。",
+      "confirm": "メニューに戻る"
+    }
+  },
   "menu_scene": {
     "project_name": "Elysia Engine",
     "demo_gallery": "デモギャラリー",

@@ -14,10 +14,14 @@
 #include "engine/io/loaders/asset_config_types.h"
 #include "engine/resources/runtime/resource_manager.h"
 #include "engine/scene/scene_manager.h"
+#include "engine/ui/composites/ui_confirmation_dialog.h"
+#include "engine/ui/window/ui_window.h"
 
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <memory>
+#include <numbers>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -41,6 +45,22 @@ public:
     static void update(Scene& scene, double delta) { scene.lifecycle_update(delta); }
     static elysia::physics::PhysicsWorld& physics(Scene& scene) { return scene.physics_world(); }
     static SceneCameraRuntime& cameras(Scene& scene) { return scene.camera_runtime(); }
+    template <typename T>
+    static T* find_ui(Scene& scene)
+    {
+        const auto visit = [](auto&& self, elysia::ui::UiElement& element) -> T* {
+            if (element.is_destroyed()) return nullptr;
+            if (auto* result = dynamic_cast<T*>(&element)) return result;
+            if (auto* host = dynamic_cast<elysia::ui::UiChildHost*>(&element))
+                for (std::size_t index = 0; index < host->child_count(); ++index)
+                    if (auto* child = host->child_at(index))
+                        if (auto* result = self(self, *child)) return result;
+            return nullptr;
+        };
+        for (const auto& root : scene._ui_roots)
+            if (auto* result = visit(visit, *root)) return result;
+        return nullptr;
+    }
     template <typename T>
     static T* find(Scene& scene)
     {
@@ -95,6 +115,72 @@ InputSnapshot press(RawInputControl control)
         .device = mouse ? InputDevice::Mouse : InputDevice::Keyboard,
         .source = source.source});
     return input;
+}
+
+InputSnapshot release(RawInputControl control)
+{
+    auto input = idle_input();
+    const bool mouse = is_mouse_button_control(control);
+    auto& source = input.sources[mouse ? 1 : 0];
+    source.initial_state.set_pressed(control, true);
+    input.events.push_back({.control = control,
+        .type = RawInputEventType::ControlReleased,
+        .device = mouse ? InputDevice::Mouse : InputDevice::Keyboard,
+        .source = source.source});
+    return input;
+}
+
+void aim_and_fire(game::scene::GameScene& scene, elysia::core::Vector2 target,
+                  float error_degrees = 0.0f)
+{
+    auto* moon_cell = Access::find<game::launcher::MoonCell>(scene);
+    if (!moon_cell) throw std::runtime_error("Missing launcher in aiming test.");
+    const auto bearing = moon_cell->cannon_pivot().direction_to(target);
+    const float angle = std::atan2(bearing.y, bearing.x)
+        + error_degrees * std::numbers::pi_v<float> / 180.0f;
+    const elysia::core::Vector2 direction{std::cos(angle), std::sin(angle)};
+    const auto cursor = scene.camera().world_to_screen(
+        moon_cell->cannon_pivot() + direction * 500.0f);
+    auto fire = press(RawInputControl::MouseLeft);
+    fire.events.front().mouse_x = static_cast<int>(std::lround(cursor.x));
+    fire.events.front().mouse_y = static_cast<int>(std::lround(cursor.y));
+    Access::input(scene, idle_input());
+    Access::input(scene, fire);
+}
+
+class RouteCapture final : public elysia::scene::SceneRequestObserver
+{
+public:
+    void on_scene_request(const elysia::scene::SceneRequest& request) override
+    {
+        last_request = request;
+    }
+    elysia::scene::SceneRequest last_request{};
+};
+
+void test_level_selection(const elysia::scene::SceneRuntimeContext& context)
+{
+    RouteCapture capture;
+    game::scene::LevelSelectScene scene;
+    scene.attach(&capture);
+    Access::enter(scene, context, {});
+    Access::update(scene, 1.0 / 60.0);
+    for (const auto& entry : game::level::GameLevelCatalog::entries())
+    {
+        capture.last_request = {};
+        Access::input(scene, press(RawInputControl::KeyEnter));
+        Access::input(scene, release(RawInputControl::KeyEnter));
+        const auto* payload = elysia::scene::try_scene_payload<game::level::GameScenePayload>(
+            capture.last_request.route.payload);
+        expect(capture.last_request.type == elysia::scene::SceneRequestType::Switch
+                   && capture.last_request.route.target == game::scene_keys::Game
+                   && payload && payload->level_id == entry.id,
+               "level selection launches the focused level in catalog order");
+        Access::input(scene, press(RawInputControl::KeyDown));
+        Access::input(scene, release(RawInputControl::KeyDown));
+    }
+    scene.detach(&capture);
+    Access::exit(scene);
 }
 
 void test_menu_lifecycle(const elysia::scene::SceneRuntimeContext& context)
@@ -246,9 +332,10 @@ void test_game_lifecycle(const elysia::scene::SceneRuntimeContext& context)
     expect(physics.registered_object_count() == 0, "exit during flight cleans up the projectile");
 }
 
-void exhaust_rounds(game::scene::GameScene& scene)
+void exhaust_rounds(game::scene::GameScene& scene,
+                    game::level::GameLevelId level_id = game::level::GameLevelId::Prototype)
 {
-    const auto& definition = game::level::GameLevelCatalog::get(game::level::GameLevelId::Prototype);
+    const auto& definition = game::level::GameLevelCatalog::get(level_id);
     for (int shot = 0; shot < definition.mission.maximum_rounds; ++shot)
     {
         Access::input(scene, idle_input());
@@ -262,10 +349,166 @@ void exhaust_rounds(game::scene::GameScene& scene)
     }
 }
 
+void test_first_strike(const elysia::scene::SceneRuntimeContext& context)
+{
+    using game::level::GameLevelId;
+    game::scene::GameScene scene;
+    Access::enter(scene, context, game::level::GameScenePayload{});
+    Access::update(scene, 1.0 / 60.0);
+    const auto ships = Access::find_all<game::fleet::EnemyShip>(scene);
+    expect(ships.size() == 1 && Access::physics(scene).registered_object_count() == 2,
+           "the default first level contains only the launcher and one enemy physics body");
+    if (ships.size() != 1) throw std::runtime_error("Missing first-level flagship.");
+    auto* flagship = ships.front();
+    expect(flagship->role() == game::fleet::ShipRole::Flagship
+               && flagship->ability() == game::fleet::ShipAbility::None
+               && flagship->hit_points() == 2,
+           "the first-level flagship starts with two hit points and no ability");
+    for (int shot = 0; shot < 2; ++shot)
+    {
+        aim_and_fire(scene, flagship->center());
+        expect(Access::find<game::projectile::Projectile>(scene) != nullptr,
+               "the first level accepts a shot at default power");
+        for (int frame = 0;
+             frame < 1260 && Access::find<game::projectile::Projectile>(scene); ++frame)
+            Access::update(scene, 1.0 / 60.0);
+        expect(flagship->hit_points() == 1 - shot,
+               "each naturally flown shot deals one damage to the first-level flagship");
+        for (int frame = 0; frame < 90; ++frame) Access::update(scene, 1.0 / 60.0);
+    }
+    expect(flagship->is_defeated() && Access::find<game::fleet::FlagshipLaser>(scene) == nullptr,
+           "two natural hits win the first level without triggering the failure laser");
+    Access::input(scene, press(RawInputControl::KeyR));
+    expect(Access::find<game::fleet::EnemyShip>(scene)->hit_points() == 2,
+           "restart preserves the selected first level");
+    for (int shot = 0; shot < 4; ++shot)
+    {
+        Access::input(scene, idle_input());
+        Access::input(scene, press(RawInputControl::MouseLeft));
+        auto* projectile = Access::find<game::projectile::Projectile>(scene);
+        expect(projectile != nullptr, "all four first-level rounds are available");
+        if (!projectile) break;
+        projectile->update(21.0);
+        Access::update(scene, 0.0);
+        expect((Access::find<game::fleet::FlagshipLaser>(scene) != nullptr) == (shot == 3),
+               "only the fourth failed shot starts the first-level failure sequence");
+    }
+    Access::update(scene, 3.0);
+    Access::input(scene, idle_input());
+    Access::input(scene, press(RawInputControl::MouseLeft));
+    expect(Access::find<game::projectile::Projectile>(scene) == nullptr,
+           "a fifth first-level shot is rejected after ammunition is exhausted");
+    Access::exit(scene);
+    Access::reset(scene);
+    Access::enter(scene, context, game::level::GameScenePayload{GameLevelId::Prototype});
+    Access::update(scene, 1.0 / 60.0);
+    expect(Access::find_all<game::fleet::EnemyShip>(scene).size() == 3,
+           "selecting the second level after the first builds the original fleet");
+    Access::exit(scene);
+}
+
+void test_return_menu_dialog(const elysia::scene::SceneRuntimeContext& context)
+{
+    RouteCapture capture;
+    game::scene::GameScene scene;
+    scene.attach(&capture);
+    Access::enter(scene, context, game::level::GameScenePayload{});
+    Access::update(scene, 1.0 / 60.0);
+    auto* window = Access::find_ui<elysia::ui::UiWindow>(scene);
+    auto* dialog = Access::find_ui<elysia::ui::UiConfirmationDialog>(scene);
+    if (!window || !dialog) throw std::runtime_error("Missing return-menu dialog.");
+    expect(!window->is_overlay_open(*dialog), "return-menu dialog starts closed");
+
+    Access::input(scene, press(RawInputControl::KeyEscape));
+    Access::input(scene, release(RawInputControl::KeyEscape));
+    expect(scene.is_paused() && window->is_overlay_open(*dialog),
+           "Escape opens a modal return-menu dialog and pauses aiming");
+    Access::input(scene, press(RawInputControl::MouseLeft));
+    Access::update(scene, 0.5);
+    expect(Access::find<game::projectile::Projectile>(scene) == nullptr
+               && window->is_overlay_open(*dialog),
+           "clicking outside the modal cannot fire or dismiss the confirmation");
+    Access::input(scene, idle_input());
+    Access::input(scene, press(RawInputControl::KeyEnter));
+    Access::input(scene, release(RawInputControl::KeyEnter));
+    expect(!scene.is_paused() && !window->is_overlay_open(*dialog)
+               && capture.last_request.type == elysia::scene::SceneRequestType::None,
+           "the initially focused Cancel button resumes without leaving the level");
+
+    auto* flagship = Access::find<game::fleet::EnemyShip>(scene);
+    aim_and_fire(scene, flagship->center());
+    Access::update(scene, 0.05);
+    auto* projectile = Access::find<game::projectile::Projectile>(scene);
+    if (!projectile) throw std::runtime_error("Missing projectile in return-menu test.");
+    Access::input(scene, press(RawInputControl::KeyEscape));
+    Access::input(scene, release(RawInputControl::KeyEscape));
+    const auto paused_position = projectile->center();
+    const auto paused_camera = scene.camera().center();
+    Access::update(scene, 25.0);
+    expect(!projectile->finished() && projectile->center() == paused_position
+               && scene.camera().center() == paused_camera,
+           "the modal freezes projectile lifetime, physics, and the flight camera");
+    Access::input(scene, press(RawInputControl::KeyEscape));
+    Access::input(scene, release(RawInputControl::KeyEscape));
+    expect(!scene.is_paused() && !window->is_overlay_open(*dialog),
+           "Escape dismisses the open dialog and resumes the same flight");
+    Access::update(scene, 0.05);
+    expect(projectile->center().distance_to(paused_position) > 1.0f,
+           "the existing projectile continues after cancelling the dialog");
+
+    scene.pause();
+    Access::input(scene, press(RawInputControl::KeyEscape));
+    Access::input(scene, release(RawInputControl::KeyEscape));
+    Access::input(scene, press(RawInputControl::KeyEscape));
+    Access::input(scene, release(RawInputControl::KeyEscape));
+    expect(scene.is_paused() && !window->is_overlay_open(*dialog),
+           "cancelling a dialog opened during an existing pause preserves that pause");
+    scene.resume();
+
+    Access::input(scene, press(RawInputControl::KeyEscape));
+    Access::input(scene, release(RawInputControl::KeyEscape));
+    Access::input(scene, press(RawInputControl::KeyRight));
+    Access::input(scene, release(RawInputControl::KeyRight));
+    Access::input(scene, press(RawInputControl::KeyEnter));
+    Access::input(scene, release(RawInputControl::KeyEnter));
+    expect(capture.last_request.type == elysia::scene::SceneRequestType::Switch
+               && capture.last_request.route.target == game::scene_keys::MainMenu
+               && scene.is_paused(),
+           "confirm requests the main menu while keeping the departing game paused");
+    Access::exit(scene);
+    expect(Access::physics(scene).registered_object_count() == 0,
+           "leaving through the menu dialog cleans up in-flight physics");
+    Access::reset(scene);
+    Access::enter(scene, context, game::level::GameScenePayload{});
+    Access::update(scene, 1.0 / 60.0);
+    window = Access::find_ui<elysia::ui::UiWindow>(scene);
+    dialog = Access::find_ui<elysia::ui::UiConfirmationDialog>(scene);
+    expect(!scene.is_paused() && window && dialog && !window->is_overlay_open(*dialog),
+           "reentering the level does not inherit the old modal or its pause");
+    scene.detach(&capture);
+    Access::exit(scene);
+
+    elysia::scene::SceneManager manager;
+    manager.initialize(context);
+    manager.register_game_scene<game::scene::MainMenuScene>(game::scene_keys::MainMenu);
+    manager.register_game_scene<game::scene::GameScene>(game::scene_keys::Game);
+    manager.start({.target = game::scene_keys::Game, .payload = game::level::GameScenePayload{}});
+    manager.on_update(1.0 / 60.0);
+    for (auto key : {RawInputControl::KeyEscape, RawInputControl::KeyRight, RawInputControl::KeyEnter})
+    {
+        manager.on_input(press(key));
+        manager.on_input(release(key));
+    }
+    expect(manager.current_scene_key() == game::scene_keys::MainMenu
+               && manager.state() == elysia::scene::SceneManagerState::Running,
+           "the live scene manager completes the confirmed return to the main menu");
+    expect(manager.shutdown(), "return-menu scene transition shuts down cleanly");
+}
+
 void test_victory_camera(const elysia::scene::SceneRuntimeContext& context)
 {
     game::scene::GameScene scene;
-    Access::enter(scene, context, game::level::GameScenePayload{});
+    Access::enter(scene, context, game::level::GameScenePayload{game::level::GameLevelId::Prototype});
     Access::update(scene, 1.0 / 60.0);
     const auto observation_center = scene.camera().center();
     game::fleet::EnemyShip* flagship = nullptr;
@@ -302,13 +545,72 @@ void test_victory_camera(const elysia::scene::SceneRuntimeContext& context)
     Access::exit(scene);
 }
 
+void test_prototype_aiming_tolerance(const elysia::scene::SceneRuntimeContext& context)
+{
+    // Use real input and physics, including every field and portal. No teleports or direct damage.
+    // A one-degree aiming error should still allow the shield-first route at default launch power.
+    for (float error_degrees : {-1.0f, 0.0f, 1.0f})
+    {
+        game::scene::GameScene scene;
+        Access::enter(scene, context, game::level::GameScenePayload{game::level::GameLevelId::Prototype});
+        Access::update(scene, 1.0 / 60.0);
+        auto* moon_cell = Access::find<game::launcher::MoonCell>(scene);
+        game::fleet::EnemyShip* flagship = nullptr;
+        game::fleet::EnemyShip* projector = nullptr;
+        game::fleet::EnemyShip* repulsor = nullptr;
+        for (auto* ship : Access::find_all<game::fleet::EnemyShip>(scene))
+        {
+            if (ship->role() == game::fleet::ShipRole::Flagship) flagship = ship;
+            if (ship->ability() == game::fleet::ShipAbility::ShieldProjector) projector = ship;
+            if (ship->ability() == game::fleet::ShipAbility::RepulsionField) repulsor = ship;
+        }
+        if (!moon_cell || !flagship || !projector || !repulsor)
+            throw std::runtime_error("Missing prototype aiming targets.");
+
+        const auto& definition = game::level::GameLevelCatalog::get(game::level::GameLevelId::Prototype);
+        const int required_hits = projector->hit_points() + flagship->hit_points();
+        expect(definition.mission.maximum_rounds >= required_hits * 3,
+               "the prototype leaves at least two practice shots per required hit");
+        for (int shot = 0; shot < required_hits; ++shot)
+        {
+            auto* target = projector->is_defeated() ? flagship : projector;
+            const int health_before = target->hit_points();
+            aim_and_fire(scene, target->center(), error_degrees);
+            expect(Access::find<game::projectile::Projectile>(scene) != nullptr,
+                   "the prototype route launches through mouse input");
+            float nearest_distance = 10000.0f;
+            elysia::core::Vector2 last_position{};
+            for (int frame = 0;
+                 frame < 1260 && Access::find<game::projectile::Projectile>(scene); ++frame)
+            {
+                const auto* projectile = Access::find<game::projectile::Projectile>(scene);
+                last_position = projectile->center();
+                nearest_distance = std::min(nearest_distance, last_position.distance_to(target->center()));
+                Access::update(scene, 1.0 / 60.0);
+            }
+            if (target->hit_points() != health_before - 1)
+                std::cerr << "Aim error " << error_degrees << ", shot " << shot + 1
+                          << ", nearest target distance " << nearest_distance
+                          << ", last position " << last_position.x << ',' << last_position.y << '\n';
+            expect(target->hit_points() == health_before - 1,
+                   "a one-degree aiming error still hits the intended target at default power");
+            for (int frame = 0; frame < 90; ++frame) Access::update(scene, 1.0 / 60.0);
+        }
+        expect(projector->is_defeated() && flagship->is_defeated() && !repulsor->is_defeated(),
+               "the prototype can be won through natural flight without clearing the repulsor");
+        expect(Access::find<game::fleet::FlagshipLaser>(scene) == nullptr,
+               "the accessible prototype route wins before the flagship fires");
+        Access::exit(scene);
+    }
+}
+
 void test_failure_cinematic(const elysia::scene::SceneRuntimeContext& context)
 {
     using elysia::camera::CameraSlot;
     using game::fleet::FlagshipLaserPhase;
     const auto& definition = game::level::GameLevelCatalog::get(game::level::GameLevelId::Prototype);
     game::scene::GameScene scene;
-    Access::enter(scene, context, game::level::GameScenePayload{});
+    Access::enter(scene, context, game::level::GameScenePayload{game::level::GameLevelId::Prototype});
     Access::update(scene, 1.0 / 60.0);
     const auto observation_center = scene.camera().center();
     exhaust_rounds(scene);
@@ -371,13 +673,13 @@ void test_failure_cinematic(const elysia::scene::SceneRuntimeContext& context)
 
     // An interrupted blend must not advance a rebuilt level into laser firing.
     Access::reset(scene);
-    Access::enter(scene, context, game::level::GameScenePayload{});
+    Access::enter(scene, context, game::level::GameScenePayload{game::level::GameLevelId::Prototype});
     Access::update(scene, 1.0 / 60.0);
     exhaust_rounds(scene);
     Access::update(scene, definition.camera.flagship_blend_seconds * 0.25);
     Access::exit(scene);
     Access::reset(scene);
-    Access::enter(scene, context, game::level::GameScenePayload{});
+    Access::enter(scene, context, game::level::GameScenePayload{game::level::GameLevelId::Prototype});
     Access::update(scene, 3.0);
     expect(cameras.presented_slot() == CameraSlot::Main
                && Access::find<game::fleet::FlagshipLaser>(scene) == nullptr,
@@ -409,8 +711,12 @@ int main()
         elysia::io::ContentRegistry registry;
         elysia::scene::SceneRuntimeContext context(renderer.get(), registry, 1280, 720);
         test_menu_lifecycle(context);
+        test_level_selection(context);
+        test_first_strike(context);
+        test_return_menu_dialog(context);
         test_game_lifecycle(context);
         test_victory_camera(context);
+        test_prototype_aiming_tolerance(context);
         test_failure_cinematic(context);
     }
     catch (const std::exception& error)

@@ -14,6 +14,7 @@
 namespace game::launcher { class AimGuide; }
 namespace game::projectile { class Projectile; }
 namespace game::fleet { class FlagshipLaser; }
+namespace elysia::ui { class UiWindow; class UiConfirmationDialog; }
 
 namespace game::scene
 {
@@ -52,6 +53,9 @@ private:
     void begin_flagship_firing();
     void finish_flagship_firing();
     void update_hud();
+    void build_return_menu_dialog();
+    void open_return_menu_dialog();
+    void resume_after_return_menu_dialog();
     void launch_projectile();
     [[nodiscard]] elysia::core::Vector2 aiming_camera_target(float zoom) const noexcept;
     [[nodiscard]] game::projectile::ProjectileImpactResolution on_projectile_impact(
@@ -73,6 +77,9 @@ private:
     game::launcher::AimGuide* _aim_guide = nullptr;
     game::projectile::Projectile* _active_projectile = nullptr;
     game::fleet::FlagshipLaser* _flagship_laser = nullptr;
+    elysia::ui::UiWindow* _return_menu_window = nullptr;
+    elysia::ui::UiConfirmationDialog* _return_menu_dialog = nullptr;
+    bool _return_menu_paused_scene = false;
     elysia::tools::Timer _impact_hold_timer;
     elysia::tools::Timer _flagship_weapon_timer;
 };

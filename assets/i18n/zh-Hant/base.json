@@ -7,6 +7,13 @@
     "close": "關閉",
     "coming_soon": "即將推出"
   },
+  "game_scene": {
+    "return_menu": {
+      "title": "返回主選單",
+      "message": "確定離開目前關卡並返回主選單嗎？本次關卡進度將不會保留。",
+      "confirm": "返回主選單"
+    }
+  },
   "menu_scene": {
     "project_name": "Elysia Engine",
     "demo_gallery": "展示庫",

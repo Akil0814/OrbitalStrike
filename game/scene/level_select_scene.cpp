@@ -1,5 +1,5 @@
 #include "level_select_scene.h"
-#include "../level/game_level_definition.h"
+#include "../level/game_level_catalog.h"
 #include "scene_keys.h"
 
 #include "engine/tools/logger.h"
@@ -11,6 +11,8 @@
 #include "engine/ui/containers/ui_list_container.h"
 #include "engine/ui/containers/ui_grid_container.h"
 #include "engine/ui/layout/ui_layout_types.h"
+
+#include <string>
 
 namespace game::scene
 {
@@ -81,18 +83,21 @@ namespace game::scene
             .press = "system.button_click_down",
             .click = "system.button_click_up" };
 
-        std::unique_ptr<elysia::ui::UiButton> prototype_button = std::make_unique<elysia::ui::UiButton>(
-            elysia::core::Rect{0, 0, 260, 72});
-        prototype_button->set_text_content(elysia::ui::ui_raw_text("Launch orbital prototype"));
-        prototype_button->set_sounds(menu_button_sounds);
-        prototype_button->set_on_click([this] {
-            ELYSIA_LOG_DEBUG("LevelSelectScene", "button click");
-            Scene::request_scene_switch(
-                game::scene_keys::Game,
-                game::level::GameScenePayload{.level_id = game::level::GameLevelId::Prototype},
-                elysia::scene::SceneReloadMode::Reset);
-        });
-        ui_list->add_back(std::move(prototype_button));
+        for (const auto& entry : game::level::GameLevelCatalog::entries())
+        {
+            auto button = std::make_unique<elysia::ui::UiButton>(
+                elysia::core::Rect{0, 0, 360, 72});
+            button->set_text_content(elysia::ui::ui_raw_text(std::string(entry.title)));
+            button->set_sounds(menu_button_sounds);
+            button->set_on_click([this, level_id = entry.id] {
+                ELYSIA_LOG_DEBUG("LevelSelectScene", "button click");
+                Scene::request_scene_switch(
+                    game::scene_keys::Game,
+                    game::level::GameScenePayload{.level_id = level_id},
+                    elysia::scene::SceneReloadMode::Reset);
+            });
+            ui_list->add_back(std::move(button));
+        }
 
         elysia::ui::UiLayoutChildOptions layout{elysia::ui::UiLayoutAnchor::Center};
         elysia::ui::UiElement* added = _main_window->add_child(std::move(ui_list), layout);

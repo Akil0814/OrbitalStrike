@@ -12,11 +12,11 @@
 
 namespace game::level
 {
-enum class GameLevelId : unsigned char { Prototype };
+enum class GameLevelId : unsigned char { Prototype, FirstStrike };
 
 struct GameScenePayload
 {
-    GameLevelId level_id = GameLevelId::Prototype;
+    GameLevelId level_id = GameLevelId::FirstStrike;
 };
 
 struct GameCameraConfig

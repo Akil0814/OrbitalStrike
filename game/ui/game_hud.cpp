@@ -250,7 +250,7 @@ void GameHud::update(const GameHudModel& model)
         "FLAGSHIP CHARGING  |  SHOTS LEFT "
         + std::to_string(maximum_rounds - completed_rounds)));
     _status_label->set_text_content(elysia::ui::ui_raw_text(status_text(model)));
-    _hint_label->set_text_content(elysia::ui::ui_raw_text(hint_text(model)));
+    _hint_label->set_text_content(elysia::ui::ui_raw_text(hint_text(model) + "  |  Esc: menu"));
 }
 
 void GameHud::clear() noexcept

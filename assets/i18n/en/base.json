@@ -7,6 +7,13 @@
     "close": "Close",
     "coming_soon": "Coming soon"
   },
+  "game_scene": {
+    "return_menu": {
+      "title": "Return to main menu?",
+      "message": "Leave this level and return to the main menu? Current level progress will be lost.",
+      "confirm": "Return to menu"
+    }
+  },
   "menu_scene": {
     "project_name": "Elysia Engine",
     "demo_gallery": "Demo Gallery",
