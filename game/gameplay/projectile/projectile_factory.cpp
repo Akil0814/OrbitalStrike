@@ -20,7 +20,6 @@ Projectile* ProjectileFactory::spawn(ProjectileSpawnRequest request) const
     ProjectileConfig config;
     config.position = request.position;
     config.velocity = request.velocity;
-    config.despawn_bounds = request.despawn_bounds;
     config.definition = request.definition;
     config.texture = texture;
     config.on_impact = std::move(request.on_impact);

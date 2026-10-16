@@ -1,12 +1,12 @@
 #pragma once
 
-#include "../input/game_input_controller.h"
+#include "../input/game_actions.h"
 #include "../level/game_level.h"
 #include "../gameplay/projectile/projectile_factory.h"
 #include "../gameplay/session/round_controller.h"
 #include "../ui/game_hud.h"
 
-#include "engine/scene/scene.h"
+#include "engine/gameplay/scene/gameplay_scene.h"
 #include "engine/tools/timer.h"
 
 #include <optional>
@@ -18,7 +18,7 @@ namespace elysia::ui { class UiWindow; class UiConfirmationDialog; }
 
 namespace game::scene
 {
-class GameScene final : public elysia::scene::Scene
+class GameScene final : public elysia::gameplay::GameplayScene
 {
 public:
     GameScene();
@@ -31,10 +31,12 @@ protected:
 
     void on_before_update(double delta) override;
     void on_after_update(double delta) override;
-    void on_routed_input(const elysia::input::InputSnapshot& input) override;
-    void on_fixed_update(std::uint64_t tick, double delta) override;
+    void on_shortcuts(const elysia::input::RawInputFrame& input,
+                      const std::vector<elysia::input::RawInputEvent>& events) override;
+    bool on_unassigned_input(const elysia::input::RawInputEvent& event) override;
+    void on_game_fixed_update(std::uint64_t tick, double delta) override;
     void on_scene_object_registered(elysia::core::SceneObject& object) override;
-    void on_scene_object_removing(elysia::core::SceneObject& object) override;
+    void on_control_target_removing(elysia::core::SceneObject& object) override;
     void on_camera_blend_completed(
         elysia::camera::CameraBlendId id, elysia::camera::CameraSlot slot) override;
     void on_camera_motion_completed(
@@ -44,7 +46,9 @@ protected:
 
 private:
     void build_level();
-    void clear_level() noexcept;
+    void clear_level();
+    void handle_control(const elysia::gameplay::ControlCommand& command, double delta);
+    void cancel_control(elysia::gameplay::InputCancelReason reason) noexcept;
     void restart_level();
     void finish_resolution();
     void handle_round_completion(game::session::ProjectileCompletionAction action);
@@ -57,18 +61,22 @@ private:
     void open_return_menu_dialog();
     void resume_after_return_menu_dialog();
     void launch_projectile();
-    [[nodiscard]] elysia::core::Vector2 aiming_camera_target(float zoom) const noexcept;
+    [[nodiscard]] float clamp_observation_zoom(float zoom) const noexcept;
     [[nodiscard]] game::projectile::ProjectileImpactResolution on_projectile_impact(
         const game::projectile::ProjectileImpact& impact);
     void on_projectile_finished(game::projectile::ProjectileEndReason reason);
 
     std::optional<game::level::GameLevelId> _level_id;
     float _power = 1050.0f;
-    elysia::core::Vector2 _camera_pan_offset{};
+    elysia::core::Rect _camera_bounds{};
     std::optional<elysia::camera::CameraBlendId> _flagship_blend;
     std::optional<elysia::camera::CameraMotionId> _flagship_pullback;
 
-    game::input::GameInputController _input;
+    elysia::gameplay::ControllerHandle _controller;
+    elysia::input::InputDevice _input_device = elysia::input::InputDevice::Keyboard;
+    bool _mouse_aim = true;
+    bool _gamepad_aim_active = false;
+    bool _restart_requested = false;
     game::level::GameLevel _level;
     game::session::RoundController _round;
     game::ui::GameHud _hud;

@@ -156,6 +156,9 @@ void ControllerManager::cancel(Entry &e, InputCancelReason reason)
     e.command.state = {};
     e.command.events.clear();
     e.command.deltas.clear();
+    e.command.pointer_position.reset();
+    e.command.pointer_updated = false;
+    e.command.input_device = InputDevice::Unknown;
     if (e.cancelling)
         return;
     e.cancelling = true;
@@ -552,6 +555,29 @@ void ControllerManager::input(SceneControlContext &ctx, const InputSnapshot &inp
                 return false;
             });
             auto filtered = players.for_player(player, input);
+            for (const auto& operation : ctx._scene.input_router().consumed_operations())
+                if (players.owns(player, operation) && operation.device == InputDevice::Mouse
+                    && (operation.type == RawInputEventType::MouseMoved
+                        || operation.type == RawInputEventType::ControlPressed))
+                {
+                    e->command.pointer_position.reset();
+                    e->command.pointer_updated = false;
+                }
+            for (const auto& source : filtered.sources)
+                if (source.frame.active_device != InputDevice::Unknown)
+                    e->command.input_device = source.frame.active_device;
+            for (const auto& event : filtered.events)
+            {
+                if (event.device != InputDevice::Unknown)
+                    e->command.input_device = event.device;
+                if (event.device == InputDevice::Mouse
+                    && (event.type == RawInputEventType::MouseMoved
+                        || event.type == RawInputEventType::ControlPressed))
+                {
+                    e->command.pointer_position = {static_cast<float>(event.mouse_x), static_cast<float>(event.mouse_y)};
+                    e->command.pointer_updated = true;
+                }
+            }
             e->producing_generation = e->cancel_generation;
             struct Guard
             {
@@ -707,6 +733,7 @@ void ControllerManager::advance(SceneControlContext &ctx, std::uint64_t tick, do
             e->command.events.clear();
             e->command.deltas.clear();
             e->command.state.clear_edges();
+            e->command.pointer_updated = false;
             e->receiver->on_control_command(command, delta);
         }
     });
@@ -744,6 +771,9 @@ void ControllerManager::close_context_noexcept(SceneControlContext& ctx) noexcep
             entry.command.state = {};
             entry.command.events.clear();
             entry.command.deltas.clear();
+            entry.command.pointer_position.reset();
+            entry.command.pointer_updated = false;
+            entry.command.input_device = InputDevice::Unknown;
             if (auto* local = dynamic_cast<LocalPlayerController*>(entry.controller.get()))
                 local->_map.reset_state();
         }

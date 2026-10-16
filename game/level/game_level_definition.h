@@ -1,6 +1,5 @@
 #pragma once
 
-#include "game_map_config.h"
 #include "../gameplay/anomaly/space_anomaly.h"
 #include "../gameplay/fleet/enemy_ship.h"
 #include "../gameplay/launcher/moon_cell.h"
@@ -21,7 +20,6 @@ struct GameScenePayload
 
 struct GameCameraConfig
 {
-    elysia::core::Rect aiming_bounds{};
     float initial_zoom = 0.6f;
     float minimum_zoom = 0.35f;
     float maximum_zoom = 1.6f;
@@ -50,7 +48,6 @@ struct GameMissionConfig
 
 struct GameLevelDefinition
 {
-    GameMapConfig map{};
     GameCameraConfig camera{};
     GameLaunchConfig launch{};
     GameMissionConfig mission{};

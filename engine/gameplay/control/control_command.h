@@ -2,6 +2,7 @@
 #include "../../input/action/action_input_frame.h"
 #include "../../input/input_source.h"
 #include <map>
+#include <optional>
 #include <vector>
 namespace elysia::gameplay
 {
@@ -24,6 +25,11 @@ struct ControlCommand
     std::unordered_map<elysia::input::InputActionId, elysia::input::InputActionValue,
                        elysia::input::InputActionIdHash>
         deltas;
+    // Logical screen coordinates from routed mouse input; cleared on cancellation.
+    std::optional<elysia::core::Vector2> pointer_position;
+    // Delivered once at the next fixed tick, like events and deltas.
+    bool pointer_updated = false;
+    elysia::input::InputDevice input_device = elysia::input::InputDevice::Unknown;
 };
 class ControlCommandReceiver
 {

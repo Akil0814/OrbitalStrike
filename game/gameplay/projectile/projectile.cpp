@@ -1,6 +1,7 @@
 #include "projectile.h"
 
 #include "../collision_layers.h"
+#include "../../level/game_map.h"
 #include "engine/core/render/render_command.h"
 
 #include <algorithm>
@@ -50,8 +51,6 @@ Projectile::Projectile(ProjectileConfig config)
     _collider.tag = "projectile";
 }
 
-Projectile::~Projectile() { detach_collision_listener(); }
-
 void Projectile::submit_render_commands(
     std::vector<elysia::core::RenderCommand>& out_commands) const
 {
@@ -80,7 +79,7 @@ void Projectile::update(double delta_seconds)
         return;
     }
     const auto position = center();
-    const auto& bounds = _config.despawn_bounds;
+    const auto& bounds = game::level::map::kProjectileBounds;
     if (position.x < bounds.left() || position.x > bounds.right()
         || position.y < bounds.top() || position.y > bounds.bottom())
         finish(ProjectileEndReason::OutOfBounds);
@@ -95,18 +94,11 @@ void Projectile::fixed_update(double fixed_delta_seconds)
     if (!direction.is_zero()) _visual_direction = direction;
 }
 
-void Projectile::on_collision_event(const elysia::physics::CollisionEvent& event)
+void Projectile::on_body_contact(const elysia::gameplay::collision::BodyContactEvent& event)
 {
-    if (_finished || event.phase != elysia::physics::CollisionEventPhase::Begin) return;
-    const auto self = physics_collider(0);
-    const auto& pair = event.contact.pair;
-    const auto other = pair.first.kind == elysia::physics::CollisionTargetKind::Collider
-            && pair.first.collider == self
-        ? pair.second
-        : pair.second.kind == elysia::physics::CollisionTargetKind::Collider
-                && pair.second.collider == self
-            ? pair.first
-            : elysia::physics::CollisionTarget{};
+    if (_finished || event.phase != elysia::physics::CollisionEventPhase::Begin
+        || event.body.collider != physics_collider(0)) return;
+    const auto other = event.other;
     if (other.kind != elysia::physics::CollisionTargetKind::Collider) return;
 
     const auto& manifold = event.contact.manifold;
@@ -154,17 +146,6 @@ elysia::physics::BodyDefinition Projectile::body_definition() const
 std::span<const elysia::physics::Collider> Projectile::collider_definitions() const
 {
     return std::span<const elysia::physics::Collider>(&_collider, 1);
-}
-
-void Projectile::attach_collision_listener()
-{
-    if (!_listening && physics_world()) _listening = physics_world()->add_listener(*this);
-}
-
-void Projectile::detach_collision_listener() noexcept
-{
-    if (_listening && physics_world()) (void)physics_world()->remove_listener(*this);
-    _listening = false;
 }
 
 void Projectile::finish(ProjectileEndReason reason)

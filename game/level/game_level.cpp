@@ -1,4 +1,5 @@
 #include "game_level.h"
+#include "game_map.h"
 
 #include "../gameplay/anomaly/black_hole_anomaly.h"
 #include "../gameplay/anomaly/wormhole_portal.h"
@@ -21,7 +22,7 @@ void GameLevel::build(elysia::scene::Scene& scene, const GameLevelDefinition& de
     _force_sources.reserve(1 + definition.ships.size() + definition.anomalies.size());
     _impact_targets.reserve(1 + definition.ships.size());
     _background = scene.create_and_add_object<game::presentation::ArenaBackdrop>(
-        definition.map.backdrop_bounds, definition.map.starfield);
+        map::kBackdropBounds, game::presentation::StarfieldConfig{});
     _moon_cell = scene.create_and_add_object<game::launcher::MoonCell>(definition.moon_cell);
     if (_moon_cell)
     {

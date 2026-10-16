@@ -25,9 +25,9 @@ MoonCell::MoonCell(MoonCellConfig config)
             "Required texture is unavailable: " + std::string(_config.cannon_texture_key));
 
     _config.moon_radius = std::max(
-        1.0f, std::isfinite(_config.moon_radius) ? _config.moon_radius : 1050.0f);
+        1.0f, std::isfinite(_config.moon_radius) ? _config.moon_radius : 600.0f);
     _config.barrel_length = std::max(
-        1.0f, std::isfinite(_config.barrel_length) ? _config.barrel_length : 140.0f);
+        1.0f, std::isfinite(_config.barrel_length) ? _config.barrel_length : 80.0f);
     const auto sanitize_size = [](elysia::core::Vector2 value, elysia::core::Vector2 fallback) {
         value.x = std::max(1.0f, std::isfinite(value.x) ? value.x : fallback.x);
         value.y = std::max(1.0f, std::isfinite(value.y) ? value.y : fallback.y);
@@ -38,8 +38,8 @@ MoonCell::MoonCell(MoonCellConfig config)
         value.y = std::clamp(std::isfinite(value.y) ? value.y : fallback.y, 0.0f, 1.0f);
         return value;
     };
-    _config.base_visual_size = sanitize_size(_config.base_visual_size, {2100.0f, 1182.0f});
-    _config.cannon_visual_size = sanitize_size(_config.cannon_visual_size, {406.0f, 399.0f});
+    _config.base_visual_size = sanitize_size(_config.base_visual_size, {1200.0f, 675.4286f});
+    _config.cannon_visual_size = sanitize_size(_config.cannon_visual_size, {232.0f, 228.0f});
     _config.base_visual_anchor = sanitize_anchor(_config.base_visual_anchor, {0.5f, 0.575f});
     _config.cannon_visual_anchor = sanitize_anchor(_config.cannon_visual_anchor, {0.5f, 0.703f});
     set_world_rect({
@@ -55,6 +55,24 @@ MoonCell::MoonCell(MoonCellConfig config)
     _collider.filter.mask = game::collision_layers::Projectile;
     _collider.response = elysia::physics::CollisionResponse::Block;
     _collider.tag = "moon_cell";
+}
+
+void MoonCell::set_control_handlers(
+    std::function<void(const elysia::gameplay::ControlCommand&, double)> command,
+    std::function<void(elysia::gameplay::InputCancelReason)> cancelled)
+{
+    _on_control = std::move(command);
+    _on_cancelled = std::move(cancelled);
+}
+
+void MoonCell::on_control_command(const elysia::gameplay::ControlCommand& command, double delta)
+{
+    if (_on_control) _on_control(command, delta);
+}
+
+void MoonCell::on_control_cancelled(elysia::gameplay::InputCancelReason reason)
+{
+    if (_on_cancelled) _on_cancelled(reason);
 }
 
 void MoonCell::set_aim_direction(elysia::core::Vector2 direction) noexcept
